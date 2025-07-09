@@ -68,8 +68,8 @@ Complete the MVP coroutine task scheduler by:
   - [ ] Run `cargo nextest` with and without `--features async-io` for full coverage.
 - [ ] **Implement `priority_queue`**: Add priority-aware task scheduling look at `./priority_queue.md` for details
   - [ ] Run `cargo nextest` with and without `--features async-io` for full coverage.
-- [x] **Implement `panic_isolation`**: Ensure task panics do not crash the scheduler look at `./panic_isolation.md` for details]
-  - [x] Run `cargo nextest` with and without `--features async-io` for full coverage.
+- [ ] **Implement `panic_isolation`**: Ensure task panics do not crash the scheduler look at `./panic_isolation.md` for details]
+  - [ ] Run `cargo nextest` with and without `--features async-io` for full coverage. 
 
 
 ## Crate Types

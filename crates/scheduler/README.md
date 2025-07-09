@@ -195,7 +195,7 @@ crates/scheduler/
 | Replayable     | Future: WAL hook for recording yields         |
 
 ---
-### 🛣️ Scheduler Roadmap — Next Milestones
+### 🛣️ Phase 3 - Scheduler Roadmap 
 
 *(moving from “it works” ⇒ “production-ready, PyOS8-inspired”)*
 
@@ -209,6 +209,47 @@ crates/scheduler/
 | **6** | **Error & panic isolation**   | Panicking inside a coroutine shouldn’t crash scheduler.                                                                               | • Wrap `handle.join()` in `catch_unwind`; emit PAL entry.<br>• Bubble failure to any `Join` waiters with an error code.                                                                |
 | **7** | **Supervisor tasks**          | PyOS8 supervises children; Tiffany needs same for WAL/PAL.                                                                            | • Add “system” tasks started at boot (metrics flush, GC).                                                                                                                              |
 | **8** | **Instrumentation**           | We’ll plug metric spans + event hooks into PAL & Prometheus.                                                                          | • Emit `tracing` span per `run()` cycle.<br>• Counter: `scheduler_ready_queue_depth`.<br>• Histogram: task run-to-completion latency.                                                  |
+
+---
+
+## 🛣️ Scheduler Roadmap — **Phase 4 & 5**
+
+*(“production-hard” + multi-agent scale)*
+
+> You now have PyOS8-level parity: cooperative yield, virtual clock, real I/O, cancellation, priority, panic isolation.
+> Next we harden for Tiffany’s real workload: dozens of in-VM agents, thousands of tasks, strict observability, and resource guarantees.
+
+| Phase  | Theme                                 | Why It Matters                                                                                                                      | Key Work-Items (Codex file names)                                                                                                                                                                                                                                                                                     |
+| ------ | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **4A** | **Instrumentation & PAL/WAL hooks**   | Tiffany’s Process-Activity-Log and metrics dashboards depend on per-task spans and outcome events.                                  | `tasks/scheduler/telemetry_hooks.md`<br>• Insert `tracing::span!(scheduler.loop)` around each step.<br>• Emit `TaskEvent::{Yield, Wake, Sleep, IoWait, Done, Panic}` to PAL via `pal::emit()`.<br>• Expose Prometheus gauges: `scheduler_ready_depth`, `tasks_running_total`, histograms for run latency & wait time. |
+| **4B** | **Supervisor / system tasks**         | WAL flusher, metrics pusher, GC sweeper must always run even under load.                                                            | `tasks/scheduler/system_tasks.md`<br>• Reserve priority 0 for “system”.<br>• Add `spawn_system()` used by runtime boot.                                                                                                                                                                                               |
+| **4C** | **CPU quota & runtime budgets**       | Prevent runaway compute loops inside a VM; enforce fairness.                                                                        | `tasks/scheduler/cpu_budget.md`<br>• Track “ticks consumed” per task.<br>• If budget exceeded, re-queue and decrement remaining quantum.<br>• Metric `task_budget_throttle_total`.                                                                                                                                    |
+| **4D** | **Memory guard-rails**                | Even within a microVM we don’t want OOM to kill the whole agent.                                                                    | `tasks/scheduler/mem_guard.md`<br>• Optional compile-time feature: allocate coroutines from a bounded slab; fail `spawn` if exhausted.<br>• PAL event on `SpawnDenied`.                                                                                                                                               |
+| **4E** | **Graceful shutdown & snapshot**      | FAR VM gets `SIGTERM` when orchestrator suspends it. Scheduler must drain tasks, flush WAL, and checkpoint memory for resurrection. | `tasks/scheduler/graceful_shutdown.md`<br>• `Scheduler::shutdown()` sets `terminating=true`, rejects new tasks, waits for drain or timeout.<br>• Emit `PAL::ShutdownBegin`, `PAL::ShutdownComplete`.                                                                                                                  |
+| **4F** | **Cross-VM back-pressure (optional)** | When many VMs push work to shared storage, need a flow-control hook.                                                                | `tasks/scheduler/backpressure_hook.md`<br>• Expose callback trait `OnBackpressure` that WAL layer can trigger; scheduler pauses IO-heavy tasks.                                                                                                                                                                       |
+| **5**  | **Multi-core / sharded sched**        | Later we’ll run multi-threaded inside VM or across NUMA cores. Stage the API now.                                                   | `tasks/scheduler/sharded_api.md`<br>• Abstract `Scheduler` behind trait `Executor`.<br>• Prototype `ShardPool { schedulers: Vec<Scheduler> }` with work-stealing ready-queues.                                                                                                                                        |
+
+---
+
+
+1. **Telemetry & PAL Hooks**
+   `tasks/scheduler/telemetry_hooks.md` (span wiring + PAL events + Prom metrics)
+2. **System Tasks**
+   `tasks/scheduler/system_tasks.md` (priority 0, boot tasks, tests)
+3. **CPU Budgeting**
+   `tasks/scheduler/cpu_budget.md` (tick accounting + throttle test)
+4. **Memory Guard**
+   `tasks/scheduler/mem_guard.md` (slab allocator wrapper, failure path)
+5. **Graceful Shutdown**
+   `tasks/scheduler/graceful_shutdown.md` (SIGTERM handler → drain)
+6. (Optional) Back-pressure hooks
+7. (Optional) Sharded executor prototype
+
+> **Reality check**: Phases 4A-4D are “must-have” for a stable pilot.
+> 4E becomes critical once FAR orchestration goes live.
+> 4F/5 can trail slightly; they’re optimization/scale work.
+
+No sugar-coating: this is the grind-phase where correctness, telemetry, and safety drown out flashy features — but it’s what turns a PoC into a production micro-kernel for autonomous agents.
 
 
 ---
