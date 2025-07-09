@@ -40,6 +40,31 @@ Inspired by both Erlang and modern distributed systems, Mayfly enables:
 
 ---
 
+## 🧭 Runtime Modes
+
+Mayfly can operate in two modes:
+
+### 🧬 Embedded Mode (default)
+
+* Used within Tiffany or another embedding runtime
+* Scheduler is instantiated and controlled programmatically
+* No external I/O or listening ports
+
+### 🌐 Daemon Mode (distributed/multi-node)
+
+* Mayfly runs as a **long-lived process** (e.g., container, microVM, system service)
+* Accepts jobs via IPC, gRPC, or A2A messages
+* Exposes `/metrics`, `/__health`, and remote scheduling endpoints
+* Ideal for:
+
+    * Distributed execution clusters
+    * Mesh-based agent platforms
+    * Fault-tolerant job infrastructure
+
+The `mayfly-daemon` crate encapsulates this mode and acts as a node within a larger mesh or scheduler topology. It is optional but provides flexibility for infrastructure scenarios.
+
+---
+
 ## 🚫 Scope and Boundaries
 
 As Mayfly evolves, we intentionally constrain its scope to avoid bloating and role confusion. It is critical to ensure Mayfly remains a **focused execution kernel** — not a domain-specific orchestrator or reasoning engine.
@@ -106,6 +131,7 @@ Cognition belongs in Tiffany or an upstream agent orchestration layer.
 * [ ] **WASM task engine** + sandboxing
 * [ ] **Distributed runner mesh** with auto-routing and resilience
 * [ ] **Work stealing + offloading** for dynamic load redistribution
+* [ ] **Daemon runtime** for remote execution, IPC/gRPC interfaces, and cluster behavior
 
 ### 🧭 Roadmap
 
