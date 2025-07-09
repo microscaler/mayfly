@@ -303,5 +303,3 @@ mayfly/
 MIT OR Apache 2.0
 
 ---
-
-**Built with intent by [Microscaler](https://github.com/microscaler).**
