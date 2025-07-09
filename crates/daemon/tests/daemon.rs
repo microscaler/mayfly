@@ -1,9 +1,11 @@
 use daemon::{self, config::Config};
+use serial_test::serial;
 use signal_hook::consts::SIGTERM;
 use signal_hook::low_level::raise;
 use std::time::Duration;
 
 #[test]
+#[serial]
 fn scheduler_exits_on_sigterm() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("config.toml");

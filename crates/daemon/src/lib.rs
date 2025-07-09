@@ -3,7 +3,7 @@
 pub mod config;
 mod signal;
 
-use crossbeam::channel::{Receiver, RecvTimeoutError};
+use crossbeam::channel::RecvTimeoutError;
 use scheduler::Scheduler;
 use std::time::Duration;
 use tracing::instrument;
@@ -12,10 +12,10 @@ use config::Config;
 use signal::shutdown_channel;
 
 /// Initialize the daemon and return a running instance.
+#[instrument(skip(cfg))]
 pub fn init(cfg: Config) -> anyhow::Result<Daemon> {
     tracing::info!("initializing daemon");
-    let shutdown = shutdown_channel()?;
-    Ok(Daemon { cfg, shutdown })
+    Ok(Daemon { cfg })
 }
 
 /// Convenience wrapper to initialize and immediately run the daemon.
@@ -26,11 +26,12 @@ pub fn run(cfg: Config) -> anyhow::Result<()> {
 /// Drive the scheduler until a shutdown signal is received.
 ///
 /// This loops over [`Scheduler::run`] to process any queued tasks and waits for
-/// a notification on `shutdown` before returning. When the scheduler becomes
-/// idle it blocks on the receiver for a short interval so that the loop does
-/// not busy spin.
-#[instrument(skip(sched, shutdown))]
-fn run_blocking(sched: &mut Scheduler, shutdown: &Receiver<()>) {
+/// a termination notification from [`signal::shutdown_channel`]. When the
+/// scheduler becomes idle it blocks on the receiver for a short interval so
+/// that the loop does not busy spin.
+#[instrument(skip(sched))]
+fn run_blocking(sched: &mut Scheduler) -> anyhow::Result<()> {
+    let shutdown = shutdown_channel()?;
     loop {
         sched.run();
         if shutdown.try_recv().is_ok() {
@@ -41,12 +42,12 @@ fn run_blocking(sched: &mut Scheduler, shutdown: &Receiver<()>) {
             Err(RecvTimeoutError::Timeout) => {}
         }
     }
+    Ok(())
 }
 
 /// Daemon state returned from [`init`].
 pub struct Daemon {
     cfg: Config,
-    shutdown: crossbeam::channel::Receiver<()>,
 }
 
 impl Daemon {
@@ -58,7 +59,7 @@ impl Daemon {
         let _watcher = signal::start_watcher(&self.cfg.config_path).ok();
 
         let mut sched = Scheduler::new();
-        run_blocking(&mut sched, &self.shutdown);
+        run_blocking(&mut sched)?;
 
         tracing::info!("daemon shutdown complete");
         Ok(())
