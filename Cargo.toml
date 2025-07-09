@@ -1,7 +1,3 @@
-[package]
-name = "mayfly"
-description = "Coroutine-first execution kernel for agentic systems"
-
 [workspace]
 members = [
   "crates/docsbookgen",
