@@ -1,2 +1,0 @@
-createSrcSidebar('[["api",["",[],["main.rs"]]],["canvas",["",[],["lib.rs"]]],["cli",["",[],["main.rs"]]],["core",["",[],["lib.rs"]]],["daemon",["",[],["main.rs"]]],["executor",["",[],["lib.rs"]]],["graphdb",["",[],["lib.rs"]]],["logging",["",[],["lib.rs"]]],["metrics",["",[],["lib.rs"]]],["plugins",["",[],["lib.rs"]]],["router",["",[],["lib.rs"]]],["scheduler",["",[],["lib.rs"]]],["wal",["",[],["lib.rs"]]]]');
-//{"start":19,"fragment_lengths":[27,30,28,28,31,32,31,31,31,31,30,33,27]}

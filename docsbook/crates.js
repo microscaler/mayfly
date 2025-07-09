@@ -1,2 +1,0 @@
-window.ALL_CRATES = ["api","canvas","cli","core","daemon","executor","graphdb","logging","metrics","plugins","router","scheduler","wal"];
-//{"start":21,"fragment_lengths":[5,9,6,7,9,11,10,10,10,10,9,12,6]}

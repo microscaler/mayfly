@@ -1,1 +1,0 @@
-searchState.loadedDescShard("canvas", 0, "")

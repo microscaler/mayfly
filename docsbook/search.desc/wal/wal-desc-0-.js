@@ -1,1 +1,0 @@
-searchState.loadedDescShard("wal", 0, "")

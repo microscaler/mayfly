@@ -1,1 +1,0 @@
-searchState.loadedDescShard("api", 0, "")
