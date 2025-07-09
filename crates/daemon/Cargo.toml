@@ -17,3 +17,4 @@ scheduler = { path = "../scheduler" }
 
 [dev-dependencies]
 tempfile = "3"
+serial_test = "2"
