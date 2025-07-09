@@ -12,7 +12,6 @@ tracing-subscriber = "0.3"
 signal-hook = { version = "0.3", features = ["iterator"] }
 crossbeam = "0.8"
 notify = "6"
-api = { path = "../api" }
 
 [dev-dependencies]
 tempfile = "3"
