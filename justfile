@@ -10,9 +10,9 @@ build-release:
 test:
     cargo test --workspace
 
-# Build only docbookgen (used for mdBook + RustDoc)
-build-docbookgen:
-    cargo build --package docbookgen
+# Build only docsbookgen (used for mdBook + RustDoc)
+build-docsbookgen:
+    cargo build --package docsbookgen
 
 # Build documentation for all crates (excluding private/no-docs)
 docs:
@@ -22,17 +22,13 @@ docs:
 clean:
     cargo clean
 
-# Build mdBook structure using docbookgen
-docbookgen:
-    cargo run --package docbookgen -- build ./docs/mdbook/
+# Build mdBook structure using docsbookgen
+docsbookgen:
+    cargo run --package docsbookgen -- build ./docs/mdbook/
 
 # Serve the mdBook locally
 serve-docs:
     mdbook serve ./docs/mdbook/ --open
-
-# Rebuild book after content changes
-build-docsbook:
-    mdbook build ./docs/mdbook/
 
 default:
     @echo "Available commands: build, test, run-agent, run-cli"
@@ -40,9 +36,11 @@ default:
 run-agent:
     cargo run -p daemon --bin tinkerbell
 
+# Execute the CLI to check daemon status
 run-cli:
     cargo run -p cli --bin tctl -- status
 
+# Run nextest for faster test execution
 nextest-test:
     cargo nextest run --workspace --all-targets --fail-fast --retries 1
 
