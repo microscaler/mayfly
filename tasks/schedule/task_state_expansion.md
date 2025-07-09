@@ -1,6 +1,5 @@
 ### `tasks/scheduler/task_state_expansion.md`
 
-````md
 # 🗺️ Task: Expand `TaskState` & Wire Transitions
 
 > **Goal:** Replace the current minimal `TaskState` with a full-fledged
@@ -42,7 +41,7 @@
        Finished,
        Failed,
    }
-````
+```
 
 2. **Extend `Task` struct**
 
@@ -63,20 +62,20 @@
 
 4. **Scheduler dispatch**
 
-   Before executing coroutine code:
+Before executing coroutine code:
 
-   ```rust
-   {
-       let t = self.tasks.get_mut(&tid).unwrap();
-       t.state = TaskState::Running;
-       pal::emit(TaskEvent::Running(tid));
-   }
-   ```
+```rust
+{
+    let t = self.tasks.get_mut(&tid).unwrap();
+    t.state = TaskState::Running;
+    pal::emit(TaskEvent::Running(tid));
+}
+```
 
 5. **SystemCall handling**
 
    | Variant                   | Action                                                         |
-      | ------------------------- | -------------------------------------------------------------- |
+         | ------------------------- | -------------------------------------------------------------- |
    | `Sleep(dur)`              | `task.state = Sleeping{wake_at}` and push into `sleepers` heap |
    | `Join(..)` / `IoWait(..)` | `task.state = Waiting`, add to `wait_map`, don’t re-queue      |
    | `Yield`                   | `task.state = Scheduled`, re-queue                             |
@@ -148,8 +147,3 @@
 
 After merging, Phase-4 Telemetry and Budget tasks can assume accurate state
 labels and richer PAL events.
-
-```
-
-*Repeat similar detailed expansions for the other six tasks as required.*
-```

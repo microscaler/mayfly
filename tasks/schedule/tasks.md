@@ -60,17 +60,30 @@ Complete the MVP coroutine task scheduler by:
   - [ ] look at `./virtual_clock.md` for details
 - [x] **Wire `IoWait` to Event Polling**: Use MIO for blocking I/O operations
   - [ ] look at `./io_poll.md` for details
-- [ ] **Implement `io_registry_trait` look at `./io_registry_trait.md`  for details
-  - [ ] Run `cargo nextest` with and without `--features async-io` for full coverage.
-- [ ] **Implement `io_event_loop` and  look at `./io_event_loop.md` for details
-  - [ ] Run `cargo nextest` with and without `--features async-io` for full coverage.
-- [ ] **Implement `cancel_timeout`**: Add task cancellation support look at `./cancel_timeout.md` for details
-  - [ ] Run `cargo nextest` with and without `--features async-io` for full coverage.
-- [ ] **Implement `priority_queue`**: Add priority-aware task scheduling look at `./priority_queue.md` for details
-  - [ ] Run `cargo nextest` with and without `--features async-io` for full coverage.
-- [ ] **Implement `panic_isolation`**: Ensure task panics do not crash the scheduler look at `./panic_isolation.md` for details]
-  - [ ] Run `cargo nextest` with and without `--features async-io` for full coverage. 
-
+- [ ] **Implement `io_registry_trait`**: Define a trait for I/O resource registration and lookup. See `./io_registry_trait.md` for requirements.
+  - [ ] Run `cargo nextest` with and without `--features async-io` to ensure full test coverage.
+- [ ] **Implement `io_event_loop`**: Build the event loop for I/O polling and task wakeup. Refer to `./io_event_loop.md` for design details.
+  - [ ] Run `cargo nextest` with and without `--features async-io` to verify correctness.
+- [ ] **Implement `cancel_timeout`**: Add support for task cancellation and timeouts. See `./cancel_timeout.md` for implementation notes.
+  - [ ] Run `cargo nextest` with and without `--features async-io` to confirm behavior.
+- [ ] **Implement `priority_queue`**: Integrate a priority-aware scheduling queue. Details in `./priority_queue.md`.
+  - [ ] Run `cargo nextest` with and without `--features async-io` to validate scheduling logic.
+- [ ] **Implement `panic_isolation`**: Ensure that panics in tasks do not crash the scheduler. See `./panic_isolation.md` for isolation strategies.
+  - [ ] Run `cargo nextest` with and without `--features async-io` to test resilience.
+- [ ] **Implement `telemetry_hooks`**: Add hooks for task telemetry, metrics, and logging. Refer to `./telemetry_hooks.md` for integration points.
+  - [ ] Run `cargo nextest` with and without `--features async-io` to check observability.
+- [ ] **Implement `system_tasks`**: Provide system-level tasks and hooks for internal operations. See `./system_tasks.md` for task definitions.
+  - [ ] Run `cargo nextest` with and without `--features async-io` to ensure system task coverage.
+- [ ] **Implement `cpu_budget`**: Enforce CPU usage limits per task. Details in `./cpu_budget.md`.
+  - [ ] Run `cargo nextest` with and without `--features async-io` to verify enforcement.
+- [ ] **backpressure\_hook.md**:  
+  Design and implement a backpressure mechanism for the scheduler. This should allow the system to detect when it is overloaded (e.g., too many tasks queued or resource contention) and apply strategies such as pausing task intake, signaling upstream producers, or prioritizing critical tasks. The hook must be configurable and expose metrics for observability.
+- [ ] **graceful\_shutdown.md**:  
+  Specify the process for shutting down the agent and scheduler gracefully. This includes draining the task queue, completing in-flight tasks, handling I/O cleanup, and ensuring all resources are released without data loss or corruption. The shutdown sequence should be interruptible and provide status updates.
+- [ ] **sharded\_api.md**:  
+  Outline the approach for sharding the API layer to support horizontal scaling. Define how requests are routed to the correct shard, how state is partitioned, and how inter-shard communication is managed. Address consistency, fault tolerance, and dynamic rebalancing.
+- [ ] **state\_expansion.md**:  
+  Describe the strategy for expanding and managing agent state as new features or data types are introduced. Cover versioning, migration, and backward compatibility. Include guidelines for state introspection, validation, and recovery in case of corruption or upgrade failures.
 
 ## Crate Types
 
