@@ -172,6 +172,7 @@ dependencies = [
  "anyhow",
  "crossbeam",
  "notify",
+ "scheduler",
  "serde",
  "signal-hook",
  "tempfile",

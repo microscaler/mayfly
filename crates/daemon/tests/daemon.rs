@@ -4,7 +4,7 @@ use signal_hook::low_level::raise;
 use std::time::Duration;
 
 #[test]
-fn init_and_run() {
+fn scheduler_exits_on_sigterm() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("config.toml");
     std::fs::write(&path, "").unwrap();
