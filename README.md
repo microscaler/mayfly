@@ -216,6 +216,7 @@ This enables:
 
 
 ---
+
 ## 🚀 Usage Example
 
 ```rust
@@ -273,9 +274,6 @@ fn main() {
 * Time simulation + determinism
 * Distributed mesh convergence simulation
 * Fault injection for node failure recovery
-
----
-
 
 ---
 
