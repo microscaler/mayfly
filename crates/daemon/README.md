@@ -54,6 +54,24 @@ sequenceDiagram
 * Optional inotify/fsevents config hot-reloading
 * Designed to run inside Firecracker or Apple container environments
 
+### Cargo Feature Flags
+
+The daemon provides several optional interfaces that can be enabled at compile
+time:
+
+| Feature | Description |
+|---------|-------------|
+| `ipc`   | Accept jobs via Unix domain sockets |
+| `grpc`  | Expose a gRPC server for remote control |
+| `a2a`   | Enable asynchronous agent-to-agent messaging |
+
+These features are disabled by default. Build with `--features` to enable one or
+more interfaces:
+
+```bash
+cargo build -p daemon --features ipc,grpc
+```
+
 ---
 
 ## 📦 Project Layout
