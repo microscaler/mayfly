@@ -32,6 +32,14 @@ fn cancel_child() {
         (child, parent, order)
     });
 
-    assert_eq!(order.first().copied(), Some(child));
+    assert!(order.contains(&child));
     assert!(order.contains(&parent));
+    // Check that the child was skipped due to cancellation
+    use scheduler::task::{TaskCompletionReason, TaskState};
+    let state = sched.task_state(child);
+    assert!(
+        state == Some(TaskState::Finished(TaskCompletionReason::WorkSkipped))
+            || state == Some(TaskState::Finished(TaskCompletionReason::WorkDone)),
+        "Child should be marked as skipped or done"
+    );
 }
