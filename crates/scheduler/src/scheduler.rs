@@ -384,6 +384,18 @@ impl Scheduler {
 
             // Only schedule if state is Ready
             if let Some(TaskState::Ready) = self.states.get(&tid) {
+                // Finalization step for cancelled tasks: if cancelled, immediately finalize
+                if let Some(task) = self.tasks.get(&tid) {
+                    if task.cancelled {
+                        self.states.insert(
+                            tid,
+                            TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
+                        );
+                        done_order.push(tid);
+                        self.tasks.remove(&tid);
+                        continue;
+                    }
+                }
                 self.states.insert(tid, TaskState::Running);
             } else {
                 continue;
@@ -479,6 +491,18 @@ impl Scheduler {
 
             // Only schedule if state is Ready
             if let Some(TaskState::Ready) = self.states.get(&tid) {
+                // Finalization step for cancelled tasks: if cancelled, immediately finalize
+                if let Some(task) = self.tasks.get(&tid) {
+                    if task.cancelled {
+                        self.states.insert(
+                            tid,
+                            TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
+                        );
+                        done_order.push(tid);
+                        self.tasks.remove(&tid);
+                        continue;
+                    }
+                }
                 self.states.insert(tid, TaskState::Running);
             } else {
                 continue;
@@ -659,7 +683,10 @@ impl Scheduler {
                             self.push_ready(waiter);
                         }
                         self.cancelled.insert(target);
-                        done.push(target);
+                        // Ensure cancelled tasks are included in completion order
+                        if !done.contains(&target) {
+                            done.push(target);
+                        }
                     }
                 }
             }
