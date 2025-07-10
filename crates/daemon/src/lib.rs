@@ -1,7 +1,13 @@
 //! Daemon runtime entry points.
 
+#[cfg(feature = "a2a")]
+pub mod a2a;
 pub mod config;
+#[cfg(feature = "grpc")]
+pub mod grpc;
 mod http;
+#[cfg(feature = "ipc")]
+pub mod ipc;
 mod pal;
 mod signal;
 
@@ -100,6 +106,13 @@ impl Daemon {
         let addr: SocketAddr = DEFAULT_ADDR.parse().expect("valid addr");
         let http = HttpServer::start(addr)?;
 
+        #[cfg(feature = "ipc")]
+        let ipc = ipc::IpcService::start();
+        #[cfg(feature = "grpc")]
+        let grpc = grpc::GrpcService::start();
+        #[cfg(feature = "a2a")]
+        let a2a = a2a::A2aService::start();
+
         let mut sched = Scheduler::new();
         unsafe {
             sched.spawn_system(looptask_wal_flush);
@@ -108,6 +121,13 @@ impl Daemon {
         run_blocking(&mut sched)?;
 
         http.shutdown();
+
+        #[cfg(feature = "ipc")]
+        ipc.shutdown();
+        #[cfg(feature = "grpc")]
+        grpc.shutdown();
+        #[cfg(feature = "a2a")]
+        a2a.shutdown();
 
         pal::emit(DaemonEvent::ShutdownComplete);
         tracing::info!("daemon shutdown complete");
