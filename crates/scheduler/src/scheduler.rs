@@ -19,6 +19,11 @@ use crate::syscall::SystemCall;
 use crate::task::{Task, TaskContext, TaskId, TaskState};
 use crate::wait_map::WaitMap;
 
+/// Priority level reserved for internal system tasks.
+pub const PRI_SYSTEM: u8 = 0;
+/// Default priority assigned to user tasks.
+pub const PRI_DEFAULT: u8 = 10;
+
 /// Core runtime orchestrator managing runnable tasks, pending I/O events,
 /// and join waiters.
 pub struct Scheduler {
@@ -161,7 +166,23 @@ impl Scheduler {
     where
         F: FnOnce(TaskContext) + Send + 'static,
     {
-        unsafe { self.spawn_with_priority(10, f) }
+        unsafe { self.spawn_with_priority(PRI_DEFAULT, f) }
+    }
+
+    /// Spawn a new coroutine task reserved for internal system work.
+    ///
+    /// System tasks use [`PRI_SYSTEM`] to ensure they run before normal
+    /// user tasks. See [`spawn_with_priority`] for details.
+    ///
+    /// # Safety
+    /// This method ultimately delegates to [`may::coroutine::spawn`]. The
+    /// caller must guarantee that the provided closure does not reference
+    /// data which could be invalid once the task begins execution.
+    pub unsafe fn spawn_system<F>(&mut self, f: F) -> TaskId
+    where
+        F: FnOnce(TaskContext) + Send + 'static,
+    {
+        unsafe { self.spawn_with_priority(PRI_SYSTEM, f) }
     }
 
     /// Run the scheduler loop, processing system calls from tasks.

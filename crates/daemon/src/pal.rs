@@ -14,6 +14,14 @@ pub enum DaemonEvent {
     ShutdownBegin,
     /// All shutdown work has completed and the daemon is exiting.
     ShutdownComplete,
+    /// The WAL flush task has started.
+    WalFlushStart,
+    /// The WAL flush task finished execution.
+    WalFlushFinish,
+    /// The metrics task has started.
+    MetricsStart,
+    /// The metrics task finished execution.
+    MetricsFinish,
 }
 
 lazy_static! {

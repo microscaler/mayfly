@@ -14,5 +14,6 @@ pub use pal::{TaskEvent, emit as pal_emit};
 pub use ready_queue::{ReadyEntry, ReadyQueue};
 pub use scheduler::Scheduler;
 pub use syscall::SystemCall;
+pub use task::TaskContext;
 pub use task::{Task, TaskId};
 pub use wait_map::WaitMap;
