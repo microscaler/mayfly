@@ -317,14 +317,17 @@ impl Scheduler {
     #[cfg(not(feature = "async-io"))]
     pub fn run(&mut self) -> Vec<TaskId> {
         let mut done_order = Vec::new();
-        while !self.tasks.is_empty()
-            || !self.finalization_queue.is_empty()
-            || !self.ready.is_empty()
-        {
+        let mut idle_ticks = 0;
+        const MAX_IDLE_TICKS: usize = 3;
+
+        loop {
+            let mut did_work = false;
+
             while let Some(&Reverse((wake_at, tid))) = self.sleepers.peek() {
                 if wake_at <= self.clock.now() {
                     self.sleepers.pop();
                     self.push_ready(tid);
+                    did_work = true;
                 } else {
                     break;
                 }
@@ -354,11 +357,13 @@ impl Scheduler {
 
             while let Ok((call_tid, syscall)) = self.syscall_rx.try_recv() {
                 self.handle_syscall(call_tid, syscall, &mut done_order);
+                did_work = true;
             }
 
             while let Ok(io_id) = self.io_rx.try_recv() {
                 for tid in self.wait_map.complete_io(io_id) {
                     self.push_ready(tid);
+                    did_work = true;
                 }
             }
 
@@ -372,15 +377,32 @@ impl Scheduler {
                         }
                         continue;
                     }
-                    match self.io_rx.recv_timeout(Duration::from_secs(5)) {
+                    match self.io_rx.recv_timeout(Duration::from_millis(5)) {
                         Ok(io_id) => {
                             for tid in self.wait_map.complete_io(io_id) {
                                 self.push_ready(tid);
+                                did_work = true;
                             }
                             continue;
                         }
-                        Err(_) => break,
+                        Err(_) => {}
                     }
+                    // No more IO events, check for idle ticks
+                    if !did_work
+                        && self.tasks.is_empty()
+                        && self.finalization_queue.is_empty()
+                        && self.ready.is_empty()
+                        && self.syscall_rx.is_empty()
+                    {
+                        idle_ticks += 1;
+                        if idle_ticks >= MAX_IDLE_TICKS {
+                            break;
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(1));
+                    } else {
+                        idle_ticks = 0;
+                    }
+                    continue;
                 }
             };
 
@@ -409,30 +431,30 @@ impl Scheduler {
 
             let _task = self.tasks.get_mut(&tid).expect("task not found");
 
-            match self.syscall_rx.recv_timeout(Duration::from_secs(5)) {
+            match self.syscall_rx.recv_timeout(Duration::from_millis(5)) {
                 Ok((call_tid, syscall)) => {
                     if call_tid != tid && self.tasks.contains_key(&tid) {
                         self.push_ready(tid);
                     }
                     self.handle_syscall(call_tid, syscall, &mut done_order);
+                    did_work = true;
                 }
                 Err(RecvTimeoutError::Timeout) => {
                     tracing::warn!("scheduler idle timeout");
-                    break;
                 }
-                Err(RecvTimeoutError::Disconnected) => break,
+                Err(RecvTimeoutError::Disconnected) => {}
             }
-        }
-        // Finalize any tasks in the finalization queue
-        while let Some(tid) = self.finalization_queue.pop() {
-            if let Some(task) = self.tasks.get(&tid) {
-                if task.cancelled {
-                    self.states.insert(
-                        tid,
-                        TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
-                    );
-                    done_order.push(tid);
-                    self.tasks.remove(&tid);
+            // Finalize any tasks in the finalization queue
+            while let Some(tid) = self.finalization_queue.pop() {
+                if let Some(task) = self.tasks.get(&tid) {
+                    if task.cancelled {
+                        self.states.insert(
+                            tid,
+                            TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
+                        );
+                        done_order.push(tid);
+                        self.tasks.remove(&tid);
+                    }
                 }
             }
         }
