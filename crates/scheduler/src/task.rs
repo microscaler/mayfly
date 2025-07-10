@@ -14,17 +14,30 @@ pub struct Task {
     pub handle: may::coroutine::JoinHandle<()>,
     /// Current lifecycle state of the task.
     pub state: TaskState,
+    /// Whether the task has been cancelled.
+    pub cancelled: bool,
+}
+
+/// Reason for task completion.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum TaskCompletionReason {
+    WorkDone,
+    WorkSkipped,
+    Cancelled,
+    Failed,
 }
 
 /// Represents the lifecycle state of a task.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum TaskState {
-    /// The task is currently running or ready to run.
+    /// The task is waiting for dependencies to be resolved.
+    PendingDependencies,
+    /// The task is ready to be scheduled.
+    Ready,
+    /// The task is currently running.
     Running,
-    /// The task completed successfully.
-    Finished,
-    /// The task terminated due to a panic.
-    Failed,
+    /// The task completed, with a reason.
+    Finished(TaskCompletionReason),
 }
 
 /// Shared context passed into each task.
@@ -51,5 +64,13 @@ impl TaskContext {
     /// Yield back to the scheduler without performing a system call.
     pub fn yield_now(&self) {
         self.syscall(SystemCall::Yield);
+    }
+
+    /// Check if the current task has been cancelled.
+    pub fn is_cancelled(&self) -> bool {
+        // In a real implementation, this would check the scheduler's state for this task.
+        // For now, this is a placeholder and always returns false.
+        // This should be replaced with a mechanism to query the scheduler for the cancelled flag.
+        false
     }
 }

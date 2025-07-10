@@ -1,7 +1,4 @@
-use scheduler::{
-    Scheduler, SystemCall,
-    task::{TaskContext, TaskState},
-};
+use scheduler::{Scheduler, SystemCall, task::TaskContext};
 use serial_test::file_serial;
 use std::sync::{Arc, Barrier};
 use std::thread;
@@ -34,5 +31,9 @@ fn panic_isolation() {
     });
 
     assert!(order.contains(&parent));
-    assert_eq!(sched.task_state(child), Some(TaskState::Failed));
+    use scheduler::task::{TaskCompletionReason, TaskState};
+    assert_eq!(
+        sched.task_state(child),
+        Some(TaskState::Finished(TaskCompletionReason::Failed))
+    );
 }

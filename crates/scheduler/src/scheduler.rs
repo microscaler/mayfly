@@ -67,6 +67,11 @@ pub struct Scheduler {
     wait_map: WaitMap,
     cancelled: HashSet<TaskId>,
     states: HashMap<TaskId, TaskState>,
+
+    // DAG dependency tracking
+    dependencies: HashMap<TaskId, HashSet<TaskId>>, // tasks this task depends on
+    dependents: HashMap<TaskId, HashSet<TaskId>>,   // tasks that depend on this task
+    unresolved_deps: HashMap<TaskId, usize>,        // unresolved dependency count
 }
 
 impl Scheduler {
@@ -100,6 +105,9 @@ impl Scheduler {
             wait_map: WaitMap::new(),
             cancelled: HashSet::new(),
             states: HashMap::new(),
+            dependencies: HashMap::new(),
+            dependents: HashMap::new(),
+            unresolved_deps: HashMap::new(),
         }
     }
 
@@ -162,6 +170,7 @@ impl Scheduler {
                 pri,
                 handle,
                 state: TaskState::Running,
+                cancelled: false,
             },
         );
         let entry = ReadyEntry {
@@ -184,7 +193,105 @@ impl Scheduler {
     where
         F: FnOnce(TaskContext) + Send + 'static,
     {
-        unsafe { self.spawn_with_priority(PRI_DEFAULT, f) }
+        unsafe { self.spawn_with_priority(10, f) }
+    }
+
+    /// Spawn a new coroutine task with dependencies (DAG support).
+    ///
+    /// # Panics
+    /// Panics if a dependency cycle is detected or if any dependency does not exist.
+    ///
+    /// # Safety
+    /// This function uses `may::coroutine::spawn`, which is unsafe because it may break Rust's safety guarantees
+    /// if the spawned coroutine accesses data that is not properly synchronized or outlives its stack frame.
+    /// The caller must ensure that the closure and its captured data are safe to use in this context.
+    pub unsafe fn spawn_with_deps<F>(&mut self, deps: &[TaskId], f: F) -> TaskId
+    where
+        F: FnOnce(TaskContext) + Send + 'static,
+    {
+        let tid = self.next_id;
+        self.next_id += 1;
+
+        // Validate dependencies exist and are not self-referential
+        for &dep in deps {
+            if dep == tid {
+                panic!("Task cannot depend on itself");
+            }
+            if !self.tasks.contains_key(&dep) && !self.states.contains_key(&dep) {
+                panic!("Dependency TaskId {dep} does not exist");
+            }
+        }
+
+        // Cycle detection (DFS)
+        fn has_cycle(
+            dependencies: &HashMap<TaskId, HashSet<TaskId>>,
+            start: TaskId,
+            target: TaskId,
+            visited: &mut HashSet<TaskId>,
+        ) -> bool {
+            if !visited.insert(start) {
+                return false;
+            }
+            if let Some(deps) = dependencies.get(&start) {
+                for &dep in deps {
+                    if dep == target || has_cycle(dependencies, dep, target, visited) {
+                        return true;
+                    }
+                }
+            }
+            false
+        }
+        for &dep in deps {
+            let mut visited = HashSet::new();
+            if has_cycle(&self.dependencies, dep, tid, &mut visited) {
+                panic!("Cycle detected in task dependencies");
+            }
+        }
+
+        // Register dependencies and dependents
+        let dep_set: HashSet<TaskId> = deps.iter().copied().collect();
+        let unresolved = dep_set.len();
+        self.dependencies.insert(tid, dep_set.clone());
+        self.unresolved_deps.insert(tid, unresolved);
+        for &dep in deps {
+            self.dependents.entry(dep).or_default().insert(tid);
+        }
+
+        let ctx = TaskContext {
+            tid,
+            syscall_tx: self.syscall_tx.clone(),
+        };
+
+        let handle: JoinHandle<()> = unsafe { may::coroutine::spawn(move || f(ctx)) };
+
+        if unresolved == 0 {
+            self.states.insert(tid, TaskState::Ready);
+        } else {
+            self.states.insert(tid, TaskState::PendingDependencies);
+        }
+        self.tasks.insert(
+            tid,
+            Task {
+                tid,
+                pri: PRI_DEFAULT,
+                handle,
+                state: TaskState::Running,
+                cancelled: false,
+            },
+        );
+
+        // Only schedule if no unresolved dependencies
+        if unresolved == 0 {
+            let entry = ReadyEntry {
+                pri: PRI_DEFAULT,
+                seq: self.seq,
+                tid,
+            };
+            self.seq += 1;
+            self.ready.push(entry);
+        }
+
+        tid
     }
 
     /// Spawn a new coroutine task reserved for internal system work.
@@ -275,6 +382,13 @@ impl Scheduler {
                 continue;
             }
 
+            // Only schedule if state is Ready
+            if let Some(TaskState::Ready) = self.states.get(&tid) {
+                self.states.insert(tid, TaskState::Running);
+            } else {
+                continue;
+            }
+
             let _task = self.tasks.get_mut(&tid).expect("task not found");
 
             match self.syscall_rx.recv_timeout(Duration::from_secs(5)) {
@@ -360,6 +474,13 @@ impl Scheduler {
             };
 
             if !self.tasks.contains_key(&tid) {
+                continue;
+            }
+
+            // Only schedule if state is Ready
+            if let Some(TaskState::Ready) = self.states.get(&tid) {
+                self.states.insert(tid, TaskState::Running);
+            } else {
                 continue;
             }
 
@@ -473,20 +594,28 @@ impl Scheduler {
                         task.handle.join()
                     }));
                     match res {
-                        Ok(Ok(_)) => TaskState::Finished,
+                        Ok(Ok(_)) => {
+                            if task.cancelled {
+                                TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped)
+                            } else {
+                                TaskState::Finished(crate::task::TaskCompletionReason::WorkDone)
+                            }
+                        }
                         _ => {
                             pal::emit(TaskEvent::Failed(tid));
-                            TaskState::Failed
+                            TaskState::Finished(crate::task::TaskCompletionReason::Failed)
                         }
                     }
                 } else {
-                    TaskState::Finished
+                    TaskState::Finished(crate::task::TaskCompletionReason::WorkDone)
                 };
                 self.states.insert(tid, state);
                 let (waiters, _) = self.wait_map.complete(tid, state);
                 for waiter in waiters {
                     self.push_ready(waiter);
                 }
+                // DAG dependency resolution: notify dependents
+                self.on_task_complete(tid);
                 done.push(tid);
                 requeue = false;
             }
@@ -505,16 +634,33 @@ impl Scheduler {
                 }
             }
             SystemCall::Cancel(target) => {
-                if let Some(task) = self.tasks.remove(&target) {
-                    unsafe { task.handle.coroutine().cancel() };
-                    let _ = task.handle.join();
-                    self.states.insert(target, TaskState::Finished);
-                    let (waiters, _) = self.wait_map.complete(target, TaskState::Finished);
-                    for waiter in waiters {
-                        self.push_ready(waiter);
+                if let Some(task) = self.tasks.get_mut(&target) {
+                    task.cancelled = true;
+                    // If the task has not started running, mark as Finished(WorkSkipped) and schedule for completion
+                    if let Some(TaskState::PendingDependencies) | Some(TaskState::Ready) =
+                        self.states.get(&target)
+                    {
+                        self.states.insert(
+                            target,
+                            TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
+                        );
+                        let entry = ReadyEntry {
+                            pri: task.pri,
+                            seq: self.seq,
+                            tid: target,
+                        };
+                        self.seq += 1;
+                        self.ready.push(entry);
+                        let (waiters, _) = self.wait_map.complete(
+                            target,
+                            TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
+                        );
+                        for waiter in waiters {
+                            self.push_ready(waiter);
+                        }
+                        self.cancelled.insert(target);
+                        done.push(target);
                     }
-                    self.cancelled.insert(target);
-                    done.push(target);
                 }
             }
             SystemCall::IoWait(io_id) => {
@@ -528,6 +674,35 @@ impl Scheduler {
         if requeue && self.tasks.contains_key(&tid) {
             self.push_ready(tid);
         }
+    }
+
+    /// DAG dependency resolution: called when a task completes.
+    fn on_task_complete(&mut self, tid: TaskId) {
+        // Notify dependents
+        if let Some(dependents) = self.dependents.get(&tid).cloned() {
+            for dep_tid in dependents {
+                if let Some(count) = self.unresolved_deps.get_mut(&dep_tid) {
+                    *count -= 1;
+                    if *count == 0 {
+                        // All dependencies resolved, schedule the task
+                        self.states.insert(dep_tid, TaskState::Ready);
+                        if let Some(task) = self.tasks.get(&dep_tid) {
+                            let entry = ReadyEntry {
+                                pri: task.pri,
+                                seq: self.seq,
+                                tid: dep_tid,
+                            };
+                            self.seq += 1;
+                            self.ready.push(entry);
+                        }
+                    }
+                }
+            }
+            self.dependents.remove(&tid);
+        }
+        // Clean up dependency tracking for tid
+        self.dependencies.remove(&tid);
+        self.unresolved_deps.remove(&tid);
     }
 
     /// Retrieve the recorded state of a task if known.
