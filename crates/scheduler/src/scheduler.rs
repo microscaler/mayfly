@@ -68,6 +68,9 @@ pub struct Scheduler {
 
     states: HashMap<TaskId, TaskState>,
 
+    // Tasks that need to be finalized (e.g., cancelled before running)
+    finalization_queue: Vec<TaskId>,
+
     // DAG dependency tracking
     dependencies: HashMap<TaskId, HashSet<TaskId>>, // tasks this task depends on
     dependents: HashMap<TaskId, HashSet<TaskId>>,   // tasks that depend on this task
@@ -104,6 +107,7 @@ impl Scheduler {
             ready: ReadyQueue::new(),
             wait_map: WaitMap::new(),
             states: HashMap::new(),
+            finalization_queue: Vec::new(),
             dependencies: HashMap::new(),
             dependents: HashMap::new(),
             unresolved_deps: HashMap::new(),
@@ -313,7 +317,10 @@ impl Scheduler {
     #[cfg(not(feature = "async-io"))]
     pub fn run(&mut self) -> Vec<TaskId> {
         let mut done_order = Vec::new();
-        while !self.tasks.is_empty() {
+        while !self.tasks.is_empty()
+            || !self.finalization_queue.is_empty()
+            || !self.ready.is_empty()
+        {
             while let Some(&Reverse((wake_at, tid))) = self.sleepers.peek() {
                 if wake_at <= self.clock.now() {
                     self.sleepers.pop();
@@ -416,6 +423,19 @@ impl Scheduler {
                 Err(RecvTimeoutError::Disconnected) => break,
             }
         }
+        // Finalize any tasks in the finalization queue
+        while let Some(tid) = self.finalization_queue.pop() {
+            if let Some(task) = self.tasks.get(&tid) {
+                if task.cancelled {
+                    self.states.insert(
+                        tid,
+                        TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
+                    );
+                    done_order.push(tid);
+                    self.tasks.remove(&tid);
+                }
+            }
+        }
         done_order
     }
 
@@ -423,7 +443,10 @@ impl Scheduler {
     pub fn run(&mut self) -> Vec<TaskId> {
         let mut done_order = Vec::new();
         let mut events = Events::with_capacity(8);
-        while !self.tasks.is_empty() {
+        while !self.tasks.is_empty()
+            || !self.finalization_queue.is_empty()
+            || !self.ready.is_empty()
+        {
             let timeout = if self.ready.is_empty() {
                 if let Some(wake_at) = self.next_wake_instant() {
                     let now = self.clock.now();
@@ -521,6 +544,19 @@ impl Scheduler {
                     break;
                 }
                 Err(RecvTimeoutError::Disconnected) => break,
+            }
+        }
+        // Finalize any tasks in the finalization queue
+        while let Some(tid) = self.finalization_queue.pop() {
+            if let Some(task) = self.tasks.get(&tid) {
+                if task.cancelled {
+                    self.states.insert(
+                        tid,
+                        TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
+                    );
+                    done_order.push(tid);
+                    self.tasks.remove(&tid);
+                }
             }
         }
         done_order
@@ -690,19 +726,13 @@ impl Scheduler {
             SystemCall::Cancel(target) => {
                 if let Some(task) = self.tasks.get_mut(&target) {
                     task.cancelled = true;
-                    // If the task is not running, ensure it is pushed to the ready queue for finalization
+                    // If the task is not running, ensure it is pushed to the ready queue or finalization queue for finalization
                     if let Some(TaskState::PendingDependencies) | Some(TaskState::Ready) =
                         self.states.get(&target)
                     {
                         // Only push if not already in the ready queue
                         if !self.ready.contains(target) {
-                            let entry = ReadyEntry {
-                                pri: task.pri,
-                                seq: self.seq,
-                                tid: target,
-                            };
-                            self.seq += 1;
-                            self.ready.push(entry);
+                            self.finalization_queue.push(target);
                         }
                     }
                 }
