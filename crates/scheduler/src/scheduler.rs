@@ -385,16 +385,16 @@ impl Scheduler {
             // Only schedule if state is Ready
             if let Some(TaskState::Ready) = self.states.get(&tid) {
                 // Finalization step for cancelled tasks: if cancelled, immediately finalize
-                if let Some(task) = self.tasks.get(&tid) {
-                    if task.cancelled {
-                        self.states.insert(
-                            tid,
-                            TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
-                        );
-                        done_order.push(tid);
-                        self.tasks.remove(&tid);
-                        continue;
-                    }
+                if let Some(task) = self.tasks.get(&tid)
+                    && task.cancelled
+                {
+                    self.states.insert(
+                        tid,
+                        TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
+                    );
+                    done_order.push(tid);
+                    self.tasks.remove(&tid);
+                    continue;
                 }
                 self.states.insert(tid, TaskState::Running);
             } else {
@@ -492,16 +492,16 @@ impl Scheduler {
             // Only schedule if state is Ready
             if let Some(TaskState::Ready) = self.states.get(&tid) {
                 // Finalization step for cancelled tasks: if cancelled, immediately finalize
-                if let Some(task) = self.tasks.get(&tid) {
-                    if task.cancelled {
-                        self.states.insert(
-                            tid,
-                            TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
-                        );
-                        done_order.push(tid);
-                        self.tasks.remove(&tid);
-                        continue;
-                    }
+                if let Some(task) = self.tasks.get(&tid)
+                    && task.cancelled
+                {
+                    self.states.insert(
+                        tid,
+                        TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
+                    );
+                    done_order.push(tid);
+                    self.tasks.remove(&tid);
+                    continue;
                 }
                 self.states.insert(tid, TaskState::Running);
             } else {
@@ -561,6 +561,37 @@ impl Default for Scheduler {
 }
 
 impl Scheduler {
+    /// Cancel a task by TaskId, scheduling it for cooperative cancellation and finalization.
+    ///
+    /// # Usage
+    /// - This method is intended for use in single-threaded or test contexts where you have
+    ///   exclusive access to the scheduler instance.
+    /// - In multi-threaded or concurrent scenarios (such as when using thread::scope or spawning
+    ///   tasks that interact with the scheduler), prefer to issue a `SystemCall::Cancel(target)`
+    ///   from within a task closure, rather than calling this method directly.
+    ///
+    /// # Behavior
+    /// - If the task is pending or ready, it will be scheduled for finalization and appear in the
+    ///   completion order with a `WorkSkipped` reason.
+    /// - If the task is running, it will be marked as cancelled and should check for cancellation
+    ///   cooperatively via `TaskContext::is_cancelled()`.
+    /// - Double cancellation is safe and idempotent.
+    /// - Cancelled tasks always appear in the completion order with the correct completion reason.
+    ///
+    /// # Example (single-threaded test)
+    /// ```
+    /// let mut sched = Scheduler::new();
+    /// let tid = sched.spawn_with_priority(5, |ctx| {
+    ///     if ctx.is_cancelled() { ctx.syscall(SystemCall::Done); return; }
+    ///     ctx.syscall(SystemCall::Done);
+    /// });
+    /// sched.cancel_task(tid);
+    /// let order = sched.run();
+    /// assert!(order.contains(&tid));
+    /// ```
+    pub fn cancel_task(&mut self, tid: TaskId) {
+        self.handle_syscall(tid, SystemCall::Cancel(tid), &mut Vec::new());
+    }
     /// Directly push a task ID into the ready queue without deduplication.
     pub fn ready_push_duplicate_for_test(&mut self, tid: TaskId) {
         let pri = self.tasks.get(&tid).map(|t| t.pri).unwrap_or(10);

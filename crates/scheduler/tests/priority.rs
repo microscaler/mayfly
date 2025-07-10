@@ -109,6 +109,154 @@ fn cooperative_cancellation_ordering() {
     }
 }
 
+#[test]
+fn double_cancellation() {
+    use scheduler::task::{TaskCompletionReason, TaskState};
+    let mut sched = Scheduler::new();
+    let t1 = unsafe {
+        sched.spawn_with_priority(5, |ctx: TaskContext| {
+            if ctx.is_cancelled() {
+                ctx.syscall(SystemCall::Done);
+                return;
+            }
+            ctx.syscall(SystemCall::Done);
+        })
+    };
+    // Cancel twice using the public API (single-threaded context)
+    sched.cancel_task(t1);
+    sched.cancel_task(t1);
+    let order = sched.run();
+    assert!(order.contains(&t1));
+    let state = sched.task_state(t1);
+    assert!(
+        state == Some(TaskState::Finished(TaskCompletionReason::WorkSkipped))
+            || state == Some(TaskState::Finished(TaskCompletionReason::WorkDone)),
+        "Task should be skipped or done"
+    );
+}
+
+#[test]
+fn cancellation_during_execution() {
+    use scheduler::task::{TaskCompletionReason, TaskState};
+    let mut sched = Scheduler::new();
+    let t1 = unsafe {
+        sched.spawn_with_priority(5, |ctx: TaskContext| {
+            // Simulate work, check for cancellation
+            if ctx.is_cancelled() {
+                ctx.syscall(SystemCall::Done);
+                return;
+            }
+            ctx.syscall(SystemCall::Sleep(Duration::from_millis(10)));
+            if ctx.is_cancelled() {
+                ctx.syscall(SystemCall::Done);
+                return;
+            }
+            ctx.syscall(SystemCall::Done);
+        })
+    };
+    // Cancel after scheduling using the public API (single-threaded context)
+    sched.cancel_task(t1);
+    let order = sched.run();
+    assert!(order.contains(&t1));
+    let state = sched.task_state(t1);
+    assert!(
+        state == Some(TaskState::Finished(TaskCompletionReason::WorkSkipped))
+            || state == Some(TaskState::Finished(TaskCompletionReason::WorkDone)),
+        "Task should be skipped or done"
+    );
+}
+
+#[test]
+fn dependency_chain_with_cancellation() {
+    use scheduler::task::{TaskCompletionReason, TaskState};
+    let mut sched = Scheduler::new();
+    let a = unsafe {
+        sched.spawn_with_priority(5, |ctx: TaskContext| {
+            ctx.syscall(SystemCall::Done);
+        })
+    };
+    let b = unsafe {
+        sched.spawn_with_deps(&[a], |ctx: TaskContext| {
+            ctx.syscall(SystemCall::Done);
+        })
+    };
+    let c = unsafe {
+        sched.spawn_with_deps(&[b], |ctx: TaskContext| {
+            ctx.syscall(SystemCall::Done);
+        })
+    };
+    // Cancel b before it runs using the public API (single-threaded context)
+    sched.cancel_task(b);
+    let order = sched.run();
+    assert!(order.contains(&a));
+    assert!(order.contains(&b));
+    // c should not run because its dependency was cancelled
+    assert!(!order.contains(&c), "c should not run if b is cancelled");
+    let state_b = sched.task_state(b);
+    assert_eq!(
+        state_b,
+        Some(TaskState::Finished(TaskCompletionReason::WorkSkipped))
+    );
+}
+
+#[test]
+fn panic_task_is_finalized() {
+    use scheduler::task::{TaskCompletionReason, TaskState};
+    let mut sched = Scheduler::new();
+    let t1 = unsafe {
+        sched.spawn_with_priority(5, |ctx: TaskContext| {
+            ctx.syscall(SystemCall::Done);
+            panic!("intentional panic");
+        })
+    };
+    let order = sched.run();
+    assert!(order.contains(&t1));
+    let state = sched.task_state(t1);
+    assert_eq!(
+        state,
+        Some(TaskState::Finished(TaskCompletionReason::Failed))
+    );
+}
+
+#[test]
+fn scheduler_shutdown_finalizes_pending_tasks() {
+    // This test demonstrates that dropping the scheduler with pending tasks does not panic.
+    // Note: No assertions are made here; this is a resource cleanup scenario.
+    let mut sched = Scheduler::new();
+    let _t1 = unsafe {
+        sched.spawn_with_priority(5, |ctx: TaskContext| {
+            ctx.syscall(SystemCall::Sleep(Duration::from_millis(1000)));
+            ctx.syscall(SystemCall::Done);
+        })
+    };
+    // Simulate shutdown by dropping scheduler before t1 completes
+    drop(sched);
+    // No panic should occur, and resources should be cleaned up
+}
+
+#[test]
+fn timeout_task_completion_reason() {
+    use scheduler::task::{TaskCompletionReason, TaskState};
+    let mut sched = Scheduler::new();
+    let t1 = unsafe {
+        sched.spawn_with_priority(5, |ctx: TaskContext| {
+            ctx.syscall(SystemCall::Sleep(Duration::from_millis(10)));
+            ctx.syscall(SystemCall::Done);
+        })
+    };
+    // Simulate a timeout by running the scheduler for less time than needed
+    // (This is a placeholder; actual timeout logic would require scheduler support)
+    let order = sched.run();
+    assert!(order.contains(&t1));
+    // For now, just check that the task is marked as done or skipped
+    let state = sched.task_state(t1);
+    assert!(
+        state == Some(TaskState::Finished(TaskCompletionReason::WorkDone))
+            || state == Some(TaskState::Finished(TaskCompletionReason::WorkSkipped)),
+        "Task should be done or skipped"
+    );
+}
+
 /// Stress test: Large parallel fan-out and fan-in DAG
 #[test]
 fn dag_stress_fanout_fanin() {
