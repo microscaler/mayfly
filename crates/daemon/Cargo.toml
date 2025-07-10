@@ -8,7 +8,7 @@ anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.8"
 tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 signal-hook = { version = "0.3", features = ["iterator"] }
 crossbeam = "0.8"
 notify = "6"
@@ -27,3 +27,9 @@ a2a = []
 tempfile = "3"
 serial_test = "2"
 reqwest = { version = "0.11", features = ["blocking"] }
+assert_cmd = "2"
+nix = { version = "0.30", features = ["signal", "process"] }
+
+[[bin]]
+name = "tinkerbell"
+path = "bin/tinkerbell.rs"

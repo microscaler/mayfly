@@ -101,6 +101,19 @@ RUST_LOG=debug cargo run -p daemon
 touch config.toml
 ```
 
+### Log Levels
+
+Set the `RUST_LOG` environment variable to control verbosity. The following
+levels are supported:
+
+| Level | Description |
+|-------|-------------|
+| `trace` | Extremely verbose tracing useful for diagnostics |
+| `debug` | Debug information about internal state |
+| `info`  | High-level operational messages |
+| `warn`  | Something unexpected happened but the daemon can continue |
+| `error` | A failure occurred that may require intervention |
+
 ---
 
 ## 🔌 Integration
