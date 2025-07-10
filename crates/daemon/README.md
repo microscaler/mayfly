@@ -93,7 +93,7 @@ The daemon links together internal crates:
 * [`reasonact`](../reasonact) – manages task cognition
 * [`canvas`](../canvas), [`wal`](../wal), [`metrics`](../metrics)
 
-It **does not expose** public APIs; it only manages the agent runtime inside a container.
+The daemon exposes a small HTTP server for health checks and Prometheus metrics at `http://127.0.0.1:3000`.
 
 ---
 

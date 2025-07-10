@@ -1,13 +1,17 @@
 //! Daemon runtime entry points.
 
 pub mod config;
+mod http;
 mod pal;
 mod signal;
 
 use crossbeam::channel::RecvTimeoutError;
 use scheduler::{Scheduler, SystemCall, TaskContext};
+use std::net::SocketAddr;
 use std::time::Duration;
 use tracing::instrument;
+
+use crate::http::{DEFAULT_ADDR, HttpServer};
 
 use config::Config;
 use signal::shutdown_channel;
@@ -93,12 +97,17 @@ impl Daemon {
         // Watch for config changes (stub).
         let _watcher = signal::start_watcher(&self.cfg.config_path).ok();
 
+        let addr: SocketAddr = DEFAULT_ADDR.parse().expect("valid addr");
+        let http = HttpServer::start(addr)?;
+
         let mut sched = Scheduler::new();
         unsafe {
             sched.spawn_system(looptask_wal_flush);
             sched.spawn_system(looptask_metrics);
         }
         run_blocking(&mut sched)?;
+
+        http.shutdown();
 
         pal::emit(DaemonEvent::ShutdownComplete);
         tracing::info!("daemon shutdown complete");
