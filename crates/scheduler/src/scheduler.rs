@@ -65,7 +65,7 @@ pub struct Scheduler {
     tasks: HashMap<TaskId, Task>,
     ready: ReadyQueue,
     wait_map: WaitMap,
-    cancelled: HashSet<TaskId>,
+
     states: HashMap<TaskId, TaskState>,
 
     // DAG dependency tracking
@@ -103,7 +103,6 @@ impl Scheduler {
             tasks: HashMap::new(),
             ready: ReadyQueue::new(),
             wait_map: WaitMap::new(),
-            cancelled: HashSet::new(),
             states: HashMap::new(),
             dependencies: HashMap::new(),
             dependents: HashMap::new(),
@@ -691,32 +690,19 @@ impl Scheduler {
             SystemCall::Cancel(target) => {
                 if let Some(task) = self.tasks.get_mut(&target) {
                     task.cancelled = true;
-                    // If the task has not started running, mark as Finished(WorkSkipped) and schedule for completion
+                    // If the task is not running, ensure it is pushed to the ready queue for finalization
                     if let Some(TaskState::PendingDependencies) | Some(TaskState::Ready) =
                         self.states.get(&target)
                     {
-                        self.states.insert(
-                            target,
-                            TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
-                        );
-                        let entry = ReadyEntry {
-                            pri: task.pri,
-                            seq: self.seq,
-                            tid: target,
-                        };
-                        self.seq += 1;
-                        self.ready.push(entry);
-                        let (waiters, _) = self.wait_map.complete(
-                            target,
-                            TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
-                        );
-                        for waiter in waiters {
-                            self.push_ready(waiter);
-                        }
-                        self.cancelled.insert(target);
-                        // Ensure cancelled tasks are included in completion order
-                        if !done.contains(&target) {
-                            done.push(target);
+                        // Only push if not already in the ready queue
+                        if !self.ready.contains(target) {
+                            let entry = ReadyEntry {
+                                pri: task.pri,
+                                seq: self.seq,
+                                tid: target,
+                            };
+                            self.seq += 1;
+                            self.ready.push(entry);
                         }
                     }
                 }
