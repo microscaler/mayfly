@@ -1,6 +1,7 @@
 //! Daemon runtime entry points.
 
 pub mod config;
+mod pal;
 mod signal;
 
 use crossbeam::channel::RecvTimeoutError;
@@ -10,6 +11,8 @@ use tracing::instrument;
 
 use config::Config;
 use signal::shutdown_channel;
+
+pub use pal::{DaemonEvent, emit as pal_emit, take_events};
 
 /// Initialize the daemon and return a running instance.
 #[instrument(skip(cfg))]
@@ -35,10 +38,14 @@ fn run_blocking(sched: &mut Scheduler) -> anyhow::Result<()> {
     loop {
         sched.run();
         if shutdown.try_recv().is_ok() {
+            pal::emit(DaemonEvent::ShutdownBegin);
             break;
         }
         match shutdown.recv_timeout(Duration::from_millis(50)) {
-            Ok(_) | Err(RecvTimeoutError::Disconnected) => break,
+            Ok(_) | Err(RecvTimeoutError::Disconnected) => {
+                pal::emit(DaemonEvent::ShutdownBegin);
+                break;
+            }
             Err(RecvTimeoutError::Timeout) => {}
         }
     }
@@ -61,6 +68,7 @@ impl Daemon {
         let mut sched = Scheduler::new();
         run_blocking(&mut sched)?;
 
+        pal::emit(DaemonEvent::ShutdownComplete);
         tracing::info!("daemon shutdown complete");
         Ok(())
     }
