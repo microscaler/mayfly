@@ -34,10 +34,28 @@ fn pal_events_logged_on_sigint() {
     raise(SIGINT).unwrap();
     handle.join().unwrap().unwrap();
     let events = take_events();
-    assert_eq!(
-        events,
-        vec![DaemonEvent::ShutdownBegin, DaemonEvent::ShutdownComplete]
-    );
+    assert!(events.contains(&DaemonEvent::WalFlushStart));
+    assert!(events.contains(&DaemonEvent::MetricsStart));
+    assert!(events.contains(&DaemonEvent::ShutdownBegin));
+    assert!(events.contains(&DaemonEvent::ShutdownComplete));
+}
+
+#[test]
+#[serial]
+fn system_tasks_start() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.toml");
+    std::fs::write(&path, "").unwrap();
+
+    let cfg = Config::load(&path).unwrap();
+    let daemon = daemon::init(cfg).unwrap();
+    let handle = std::thread::spawn(move || daemon.run());
+    std::thread::sleep(Duration::from_millis(50));
+    raise(SIGTERM).unwrap();
+    handle.join().unwrap().unwrap();
+    let events = take_events();
+    assert!(events.contains(&DaemonEvent::WalFlushStart));
+    assert!(events.contains(&DaemonEvent::MetricsStart));
 }
 
 #[test]

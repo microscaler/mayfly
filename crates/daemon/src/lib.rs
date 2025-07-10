@@ -5,7 +5,7 @@ mod pal;
 mod signal;
 
 use crossbeam::channel::RecvTimeoutError;
-use scheduler::Scheduler;
+use scheduler::{Scheduler, SystemCall, TaskContext};
 use std::time::Duration;
 use tracing::instrument;
 
@@ -13,6 +13,34 @@ use config::Config;
 use signal::shutdown_channel;
 
 pub use pal::{DaemonEvent, emit as pal_emit, take_events};
+
+/// Loop task responsible for periodically flushing the write-ahead log.
+///
+/// This task demonstrates a simple system coroutine that would normally
+/// interact with the `wal` crate. It records start and finish events in the
+/// process activity log and sleeps briefly to simulate work.
+#[instrument(skip(ctx))]
+pub fn looptask_wal_flush(ctx: TaskContext) {
+    pal_emit(DaemonEvent::WalFlushStart);
+    tracing::info!("wal flush task started");
+    ctx.syscall(SystemCall::Sleep(Duration::from_millis(10)));
+    pal_emit(DaemonEvent::WalFlushFinish);
+    tracing::info!("wal flush task finished");
+}
+
+/// Loop task responsible for pushing runtime metrics.
+///
+/// Similar to [`looptask_wal_flush`], this task emits PAL events so tests can
+/// verify that it started. Real implementations would collect and export
+/// metrics to a monitoring system.
+#[instrument(skip(ctx))]
+pub fn looptask_metrics(ctx: TaskContext) {
+    pal_emit(DaemonEvent::MetricsStart);
+    tracing::info!("metrics task started");
+    ctx.syscall(SystemCall::Sleep(Duration::from_millis(10)));
+    pal_emit(DaemonEvent::MetricsFinish);
+    tracing::info!("metrics task finished");
+}
 
 /// Initialize the daemon and return a running instance.
 #[instrument(skip(cfg))]
@@ -66,6 +94,10 @@ impl Daemon {
         let _watcher = signal::start_watcher(&self.cfg.config_path).ok();
 
         let mut sched = Scheduler::new();
+        unsafe {
+            sched.spawn_system(looptask_wal_flush);
+            sched.spawn_system(looptask_metrics);
+        }
         run_blocking(&mut sched)?;
 
         pal::emit(DaemonEvent::ShutdownComplete);
