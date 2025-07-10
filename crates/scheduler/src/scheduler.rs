@@ -36,8 +36,7 @@ pub struct SchedulerState {
     pub ready_queue_len: usize,
     /// Count of sleeping tasks waiting on a timer.
     pub sleepers: usize,
-    /// Tasks that were cancelled during execution.
-    pub cancelled: HashSet<TaskId>,
+
     /// Terminal states recorded for finished tasks.
     pub states: HashMap<TaskId, TaskState>,
 }
@@ -381,7 +380,6 @@ impl Scheduler {
                         Ok(io_id) => {
                             for tid in self.wait_map.complete_io(io_id) {
                                 self.push_ready(tid);
-                                did_work = true;
                             }
                             continue;
                         }
@@ -437,7 +435,6 @@ impl Scheduler {
                         self.push_ready(tid);
                     }
                     self.handle_syscall(call_tid, syscall, &mut done_order);
-                    did_work = true;
                 }
                 Err(RecvTimeoutError::Timeout) => {
                     tracing::warn!("scheduler idle timeout");
@@ -570,15 +567,15 @@ impl Scheduler {
         }
         // Finalize any tasks in the finalization queue
         while let Some(tid) = self.finalization_queue.pop() {
-            if let Some(task) = self.tasks.get(&tid) {
-                if task.cancelled {
-                    self.states.insert(
-                        tid,
-                        TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
-                    );
-                    done_order.push(tid);
-                    self.tasks.remove(&tid);
-                }
+            if let Some(task) = self.tasks.get(&tid)
+                && task.cancelled
+            {
+                self.states.insert(
+                    tid,
+                    TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
+                );
+                done_order.push(tid);
+                self.tasks.remove(&tid);
             }
         }
         done_order
@@ -814,7 +811,7 @@ impl Scheduler {
             task_count: self.tasks.len(),
             ready_queue_len: self.ready.len(),
             sleepers: self.sleepers.len(),
-            cancelled: self.cancelled.clone(),
+
             states: self.states.clone(),
         }
     }
