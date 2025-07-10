@@ -60,8 +60,8 @@ pub fn init(cfg: Config) -> anyhow::Result<Daemon> {
 }
 
 /// Convenience wrapper to initialize and immediately run the daemon.
-pub fn run(cfg: Config) -> anyhow::Result<()> {
-    init(cfg)?.run()
+pub fn run(cfg: Config, dump_state: bool) -> anyhow::Result<()> {
+    init(cfg)?.run(dump_state)
 }
 
 /// Drive the scheduler until a shutdown signal is received.
@@ -71,7 +71,7 @@ pub fn run(cfg: Config) -> anyhow::Result<()> {
 /// scheduler becomes idle it blocks on the receiver for a short interval so
 /// that the loop does not busy spin.
 #[instrument(skip(sched))]
-fn run_blocking(sched: &mut Scheduler) -> anyhow::Result<()> {
+fn run_blocking(sched: &mut Scheduler, dump: bool) -> anyhow::Result<()> {
     let shutdown = shutdown_channel()?;
     loop {
         sched.run();
@@ -87,6 +87,10 @@ fn run_blocking(sched: &mut Scheduler) -> anyhow::Result<()> {
             Err(RecvTimeoutError::Timeout) => {}
         }
     }
+    if dump {
+        let state = sched.dump_state();
+        tracing::info!(?state, "scheduler state");
+    }
     Ok(())
 }
 
@@ -98,7 +102,7 @@ pub struct Daemon {
 impl Daemon {
     /// Run the daemon until a termination signal is delivered.
     #[instrument(skip(self))]
-    pub fn run(self) -> anyhow::Result<()> {
+    pub fn run(self, dump_state: bool) -> anyhow::Result<()> {
         tracing::info!("daemon running");
         // Watch for config changes (stub).
         let _watcher = signal::start_watcher(&self.cfg.config_path).ok();
@@ -118,7 +122,7 @@ impl Daemon {
             sched.spawn_system(looptask_wal_flush);
             sched.spawn_system(looptask_metrics);
         }
-        run_blocking(&mut sched)?;
+        run_blocking(&mut sched, dump_state)?;
 
         http.shutdown();
 

@@ -13,7 +13,7 @@ fn health_endpoint_serves_ok() {
 
     let cfg = Config::load(&path).unwrap();
     let daemon = daemon::init(cfg).unwrap();
-    let handle = std::thread::spawn(move || daemon.run());
+    let handle = std::thread::spawn(move || daemon.run(false));
     std::thread::sleep(Duration::from_millis(100));
 
     let resp = reqwest::blocking::get("http://127.0.0.1:3000/__health").unwrap();
@@ -33,7 +33,7 @@ fn metrics_endpoint_serves_text() {
 
     let cfg = Config::load(&path).unwrap();
     let daemon = daemon::init(cfg).unwrap();
-    let handle = std::thread::spawn(move || daemon.run());
+    let handle = std::thread::spawn(move || daemon.run(false));
     std::thread::sleep(Duration::from_millis(100));
 
     let resp = reqwest::blocking::get("http://127.0.0.1:3000/metrics").unwrap();

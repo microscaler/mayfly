@@ -50,6 +50,6 @@ Build the binary entrypoint for the `tinkerbell` agent, responsible for:
 
 ### Future Extensions
 
-- [ ] CLI flags for concurrency, logging, and quantum
-- [ ] `--dump-state` flag to output the scheduler snapshot
+- [x] CLI flags for concurrency, logging, and quantum
+- [x] `--dump-state` flag to output the scheduler snapshot
 - [ ] Add integration test to spawn the daemon and shut it down gracefully

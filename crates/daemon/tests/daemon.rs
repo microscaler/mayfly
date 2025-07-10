@@ -13,7 +13,7 @@ fn scheduler_exits_on_sigterm() {
 
     let cfg = Config::load(&path).unwrap();
     let daemon = daemon::init(cfg).unwrap();
-    let handle = std::thread::spawn(move || daemon.run());
+    let handle = std::thread::spawn(move || daemon.run(false));
     std::thread::sleep(Duration::from_millis(50));
     raise(SIGTERM).unwrap();
     handle.join().unwrap().unwrap();
@@ -29,7 +29,7 @@ fn pal_events_logged_on_sigint() {
 
     let cfg = Config::load(&path).unwrap();
     let daemon = daemon::init(cfg).unwrap();
-    let handle = std::thread::spawn(move || daemon.run());
+    let handle = std::thread::spawn(move || daemon.run(false));
     std::thread::sleep(Duration::from_millis(50));
     raise(SIGINT).unwrap();
     handle.join().unwrap().unwrap();
@@ -49,7 +49,7 @@ fn system_tasks_start() {
 
     let cfg = Config::load(&path).unwrap();
     let daemon = daemon::init(cfg).unwrap();
-    let handle = std::thread::spawn(move || daemon.run());
+    let handle = std::thread::spawn(move || daemon.run(false));
     std::thread::sleep(Duration::from_millis(50));
     raise(SIGTERM).unwrap();
     handle.join().unwrap().unwrap();

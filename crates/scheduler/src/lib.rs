@@ -13,6 +13,7 @@ pub use io::IoSource;
 pub use pal::{TaskEvent, emit as pal_emit};
 pub use ready_queue::{ReadyEntry, ReadyQueue};
 pub use scheduler::Scheduler;
+pub use scheduler::SchedulerState;
 pub use syscall::SystemCall;
 pub use task::TaskContext;
 pub use task::{Task, TaskId};
