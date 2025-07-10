@@ -18,11 +18,29 @@ use crate::ready_queue::ReadyQueue;
 use crate::syscall::SystemCall;
 use crate::task::{Task, TaskContext, TaskId, TaskState};
 use crate::wait_map::WaitMap;
+use tracing::instrument;
 
 /// Priority level reserved for internal system tasks.
 pub const PRI_SYSTEM: u8 = 0;
 /// Default priority assigned to user tasks.
 pub const PRI_DEFAULT: u8 = 10;
+
+/// Snapshot of runtime state used for diagnostics.
+#[derive(Debug, Clone)]
+pub struct SchedulerState {
+    /// Next task identifier to be assigned.
+    pub next_id: TaskId,
+    /// Total number of active tasks.
+    pub task_count: usize,
+    /// Number of tasks currently in the ready queue.
+    pub ready_queue_len: usize,
+    /// Count of sleeping tasks waiting on a timer.
+    pub sleepers: usize,
+    /// Tasks that were cancelled during execution.
+    pub cancelled: HashSet<TaskId>,
+    /// Terminal states recorded for finished tasks.
+    pub states: HashMap<TaskId, TaskState>,
+}
 
 /// Core runtime orchestrator managing runnable tasks, pending I/O events,
 /// and join waiters.
@@ -515,5 +533,18 @@ impl Scheduler {
     /// Retrieve the recorded state of a task if known.
     pub fn task_state(&self, tid: TaskId) -> Option<TaskState> {
         self.states.get(&tid).copied()
+    }
+
+    /// Capture a diagnostic snapshot of the scheduler state.
+    #[instrument(skip(self))]
+    pub fn dump_state(&self) -> SchedulerState {
+        SchedulerState {
+            next_id: self.next_id,
+            task_count: self.tasks.len(),
+            ready_queue_len: self.ready.len(),
+            sleepers: self.sleepers.len(),
+            cancelled: self.cancelled.clone(),
+            states: self.states.clone(),
+        }
     }
 }

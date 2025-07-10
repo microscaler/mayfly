@@ -321,6 +321,17 @@ mayfly/
 │   └── a2a.rs (planned)
 ```
 
+## Tinkerbell Daemon CLI
+
+The `tinkerbell` binary exposes a few flags for customizing the runtime:
+
+| Flag | Description |
+| ---- | ----------- |
+| `--concurrency <N>` | Number of worker threads to spawn |
+| `--quantum <ms>` | Scheduling quantum in milliseconds |
+| `-v`, `--verbose` | Increase logging verbosity (use `-vv` for trace) |
+| `--dump-state` | Emit a scheduler snapshot on shutdown |
+
 
 ---
 
