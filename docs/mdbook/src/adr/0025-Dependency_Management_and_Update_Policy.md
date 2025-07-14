@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Tinkerbell spans a complex, distributed runtime involving:
+Tiffany spans a complex, distributed runtime involving:
 
 - Rust crates and workspaces
 - Container images

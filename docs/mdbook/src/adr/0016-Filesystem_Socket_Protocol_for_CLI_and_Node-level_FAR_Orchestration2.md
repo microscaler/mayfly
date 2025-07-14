@@ -8,7 +8,7 @@ Proposed
 
 ## Context
 
-Tinkerbell's **Firecracker Agentic Runtime (FAR)** requires robust management of agent lifecycles across hardware nodes. Each hardware node will run a lightweight orchestrator daemon (**Flintlock**) to handle lifecycle events (start, sleep, resurrect, forced sleep). To achieve local efficiency, secure communication, and scalability, a structured Filesystem Socket Protocol via Unix Domain Sockets is necessary.
+Tiffany's **Firecracker Agentic Runtime (FAR)** requires robust management of agent lifecycles across hardware nodes. Each hardware node will run a lightweight orchestrator daemon (**Flintlock**) to handle lifecycle events (start, sleep, resurrect, forced sleep). To achieve local efficiency, secure communication, and scalability, a structured Filesystem Socket Protocol via Unix Domain Sockets is necessary.
 
 This design includes explicit lifecycle states and local node orchestrators communicating with a central orchestrator, ensuring responsiveness, scalability, and operational transparency.
 
@@ -108,7 +108,7 @@ The central orchestrator maintains high-level coordination:
 
 ### Requirements Mapping
 
-Explicit mapping of Tinkerbell's FAR requirements to Flintlock's capabilities:
+Explicit mapping of Tiffany's FAR requirements to Flintlock's capabilities:
 
 | Requirement                                     | Flintlock Support | Notes and Actions Required                                     |
 | ----------------------------------------------- | ----------------- | -------------------------------------------------------------- |
@@ -130,7 +130,7 @@ Given Flintlock meets the majority of our needs:
 * **Preferred:**
 
     * Engage early with Flintlock maintainers to explore upstream contributions.
-    * Clearly outline specific lifecycle state extensions required by Tinkerbell (e.g., sleep, resurrect logic, state caching via S3).
+    * Clearly outline specific lifecycle state extensions required by Tiffany (e.g., sleep, resurrect logic, state caching via S3).
     * Actively contribute our enhancements back to the Flintlock project, ensuring community alignment and mutual benefit.
 
 * **Fallback:**
@@ -249,14 +249,14 @@ sequenceDiagram
 ## 📌 Immediate Recommended Action Items
 
 * **Engage** the Flintlock project maintainers early to gauge interest and align roadmaps.
-* **Clearly document** Tinkerbell’s extended lifecycle states and caching mechanisms to facilitate community discussion.
+* **Clearly document** Tiffany’s extended lifecycle states and caching mechanisms to facilitate community discussion.
 * **Prototype** preliminary integrations in a fork or branch to validate feasibility before significant investment.
 
 ---
 
 ## 🚀 Industry-Leading Capabilities
 
-Integrating Flintlock ensures Tinkerbell benefits from industry-leading orchestration capabilities, reliability, and community-driven extensibility. This positions Tinkerbell to lead with a highly scalable, robust, and secure FAR infrastructure.
+Integrating Flintlock ensures Tiffany benefits from industry-leading orchestration capabilities, reliability, and community-driven extensibility. This positions Tiffany to lead with a highly scalable, robust, and secure FAR infrastructure.
 
 ---
 

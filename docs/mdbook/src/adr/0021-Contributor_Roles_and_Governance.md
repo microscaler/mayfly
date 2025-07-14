@@ -8,13 +8,13 @@ Proposed
 
 ## Context
 
-Tinkerbell FAR is an advanced, community-driven autonomous agentic runtime project. Clear governance and well-defined contributor roles are essential to fostering a vibrant, inclusive, and effective open-source community. Without clear roles and governance, community projects often encounter:
+Tiffany FAR is an advanced, community-driven autonomous agentic runtime project. Clear governance and well-defined contributor roles are essential to fostering a vibrant, inclusive, and effective open-source community. Without clear roles and governance, community projects often encounter:
 
 * Confusion regarding decision-making authority.
 * Inconsistent or slow pull request (PR) review processes.
 * Difficulty in resolving disputes or escalating critical decisions.
 
-To address these issues, Tinkerbell requires explicit, structured governance, clear contributor roles and responsibilities, and well-defined escalation paths.
+To address these issues, Tiffany requires explicit, structured governance, clear contributor roles and responsibilities, and well-defined escalation paths.
 
 ---
 
@@ -156,7 +156,7 @@ Governance Committee (strategic advisory panel)
 
 ## 🚀 Industry-Leading Capabilities
 
-Clearly defined contributor roles and governance structure positions Tinkerbell FAR as a leader in community-driven autonomous agentic runtime systems, ensuring robust collaboration, quality contributions, and long-term project sustainability.
+Clearly defined contributor roles and governance structure positions Tiffany FAR as a leader in community-driven autonomous agentic runtime systems, ensuring robust collaboration, quality contributions, and long-term project sustainability.
 
 ---
 

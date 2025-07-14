@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Tinkerbell’s distributed runtime, including the orchestrator, local FAR agents, and external API clients (such as developer UIs or automated tools), must be protected through a secure and auditable authentication and authorization system. The system must support:
+Tiffany’s distributed runtime, including the orchestrator, local FAR agents, and external API clients (such as developer UIs or automated tools), must be protected through a secure and auditable authentication and authorization system. The system must support:
 
 - Autonomous agents authenticating to central systems
 - Developer CLI and UI access with role separation

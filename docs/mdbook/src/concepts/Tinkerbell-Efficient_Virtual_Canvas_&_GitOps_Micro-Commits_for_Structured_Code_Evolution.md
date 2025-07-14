@@ -23,9 +23,9 @@ Agents need the same constraints good engineers impose on themselves:
 
 ---
 
-## ✅ What Tinkerbell Introduces
+## ✅ What Tiffany Introduces
 
-Tinkerbell implements a **virtual canvas**, backed by Git, that:
+Tiffany implements a **virtual canvas**, backed by Git, that:
 
 - 🌱 Isolated from `main` via a named feature or task branch
 - ✏️ Accepts fine-grained changes via structured patching
@@ -45,7 +45,7 @@ This allows agents to:
 
 ---
 
-Here’s a detailed **Mermaid sequence diagram** that illustrates the end-to-end flow of a code patch through the Tinkerbell system — from agent planning to final GitOps-style commit and memory indexing.
+Here’s a detailed **Mermaid sequence diagram** that illustrates the end-to-end flow of a code patch through the Tiffany system — from agent planning to final GitOps-style commit and memory indexing.
 
 ---
 
@@ -169,7 +169,7 @@ Each commit has structured metadata:
 
 ---
 
-## 🧠 After Tinkerbell: Collaborative Autonomy
+## 🧠 After Tiffany: Collaborative Autonomy
 
 | Capability                        | Enabled by Canvas + Micro-Commits           |
 | --------------------------------- | ------------------------------------------- |

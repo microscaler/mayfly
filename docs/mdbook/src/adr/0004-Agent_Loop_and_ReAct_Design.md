@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Tinkerbell operates as an autonomous agent runtime that continuously interprets user intent, plans action sequences, invokes tools, edits code, and reflects on results. At the heart of this loop lies a **ReAct-style planning and execution model**, inspired by:
+Tiffany operates as an autonomous agent runtime that continuously interprets user intent, plans action sequences, invokes tools, edits code, and reflects on results. At the heart of this loop lies a **ReAct-style planning and execution model**, inspired by:
 
 - ReAct (Reasoning and Acting) patterns
 - Tree-of-Thought / scratchpad reasoning
@@ -151,7 +151,7 @@ Additional phases like:
 
 ## Related Documents
 - [ADR-0003: Task Scheduler Model](adr_0003_task_scheduler.md)
-- [Tinkerbell System Architecture](../whitepapers/Tinkerbell%20System%20Architecture%20and%20Design%20Overview.md)
+- [Tiffany System Architecture](../whitepapers/Tiffany%20System%20Architecture%20and%20Design%20Overview.md)
 - [Gemini CLI Agent Analysis](../whitepapers/Gemini%20CLI%20Agent%20Architecture%20and%20Reimplementation%20Plan.md)
 
 ---

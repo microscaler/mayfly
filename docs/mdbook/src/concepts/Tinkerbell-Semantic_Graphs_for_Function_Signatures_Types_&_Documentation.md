@@ -14,7 +14,7 @@ This leads to brittle behavior and frequent hallucinations during real-world sof
 
 ---
 
-### ❌ Before Tinkerbell: The Hallucination Problem
+### ❌ Before Tiffany: The Hallucination Problem
 
 Agentic LLMs frequently generate code that is **plausible but incorrect**. These errors stem from the LLM’s inability to align its predictions with:
 
@@ -44,9 +44,9 @@ This manifests in two primary ways:
 
 ---
 
-## ✅ What Tinkerbell Introduces
+## ✅ What Tiffany Introduces
 
-Tinkerbell parses and maps every function, struct, trait, and their associated types, docs, and relationships into a **semantic graph**.
+Tiffany parses and maps every function, struct, trait, and their associated types, docs, and relationships into a **semantic graph**.
 
 Each node captures:
 
@@ -70,7 +70,7 @@ This graph is persisted and embedded alongside versioned memory, meaning every L
 
 ## 🛠️ How It Works
 
-Tinkerbell parses code using `syn` + `tree-sitter`, generating a structural graph:
+Tiffany parses code using `syn` + `tree-sitter`, generating a structural graph:
 
 ```plaintext
 (:Function {name: "submit_task", return_type: "Result<TaskId>", doc: "..."})
@@ -164,7 +164,7 @@ submit_task(description)?;
 pub fn submit_task(request: TaskRequest) -> Result<TaskId> { ... }
 ```
 
-Tinkerbell has access to:
+Tiffany has access to:
 
 * ✅ Full function signature
 * ✅ `TaskRequest` struct shape and docstring
@@ -184,7 +184,7 @@ let task_id = submit_task(request)?;
 
 ---
 
-## 🧠 After Tinkerbell: Smarter Agents
+## 🧠 After Tiffany: Smarter Agents
 
 | Capability                  | Enabled by Semantic Graph Memory         |
 | --------------------------- | ---------------------------------------- |

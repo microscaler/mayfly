@@ -1,8 +1,8 @@
-# 🤖 Codex Agent Protocol: Tinkerbell
+# 🤖 Codex Agent Protocol: Tiffany
 
 Welcome, Codex or autonomous contributor.
 
-Tinkerbell is a coroutine-first autonomous agent runtime. This repo is structured around:
+Tiffany is a coroutine-first autonomous agent runtime. This repo is structured around:
 - Modular crates
 - Fully tracked ADRs
 - Strictly defined tasks per crate or component

@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Tinkerbell operates as a coroutine-oriented, agentic runtime designed for reasoning, acting, and tool orchestration. Core to this architecture is a **cooperative task scheduler** responsible for managing:
+Tiffany operates as a coroutine-oriented, agentic runtime designed for reasoning, acting, and tool orchestration. Core to this architecture is a **cooperative task scheduler** responsible for managing:
 
 - Long-running agent workflows
 - Step-wise ReAct loops
@@ -62,7 +62,7 @@ The scheduler will:
 ## Rationale
 
 ### 🔁 Cooperative vs Preemptive
-Tinkerbell requires transparent control over task transitions. Preemptive systems (e.g. thread pools) make it difficult to audit agent state or model planning steps. Cooperative coroutines, by contrast, allow us to:
+Tiffany requires transparent control over task transitions. Preemptive systems (e.g. thread pools) make it difficult to audit agent state or model planning steps. Cooperative coroutines, by contrast, allow us to:
 - Yield at semantic boundaries
 - Inject logs and metrics at every step
 - Serialize/resume entire task graphs
@@ -117,7 +117,7 @@ Having a single poll-loop mediator makes integration simpler and easier to visua
 ---
 
 ## Related Documents
-- [Tinkerbell System Architecture](../whitepapers/Tinkerbell%20System%20Architecture%20and%20Design%20Overview.md)
+- [Tiffany System Architecture](../whitepapers/Tiffany%20System%20Architecture%20and%20Design%20Overview.md)
 - [pyos8.py (Coroutine OS)](http://www.dabeaz.com/coroutines/pyos8.py)
 - [ADR-0001: Rust 2024 Coroutine Adoption](adr_0001_rust_version.md)
 

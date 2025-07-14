@@ -4,14 +4,14 @@
 Accepted
 
 ## Context
-Tinkerbell is an autonomous agentic runtime composed of multiple crates, task orchestration layers, plugins, and memory systems. As the project scales and contributors increase, keeping documentation complete, consistent, and accessible is critical.
+Tiffany is an autonomous agentic runtime composed of multiple crates, task orchestration layers, plugins, and memory systems. As the project scales and contributors increase, keeping documentation complete, consistent, and accessible is critical.
 
 This ADR defines our approach to documentation, centered around:
 - Generating and maintaining a **Rust Docbook** as a version-controlled, browsable reference.
 - Enforcing **comprehensive inline documentation** at all public API boundaries.
 - Integrating `mdbook`-based module-level design notes into the same output tree.
 
-This policy ensures Tinkerbell is a self-documenting system where new contributors, auditors, and maintainers can explore and understand internals without guesswork.
+This policy ensures Tiffany is a self-documenting system where new contributors, auditors, and maintainers can explore and understand internals without guesswork.
 
 ---
 

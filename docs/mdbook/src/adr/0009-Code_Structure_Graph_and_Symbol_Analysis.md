@@ -229,7 +229,7 @@ graph TD
 
 ## 🚀 Industry-Leading Capabilities (Reinforced):
 
-This enriched semantic graph strategy positions Tinkerbell as a leader, significantly outperforming current agentic systems by providing unparalleled depth in semantic reasoning, code generation, and refactoring capabilities.
+This enriched semantic graph strategy positions Tiffany as a leader, significantly outperforming current agentic systems by providing unparalleled depth in semantic reasoning, code generation, and refactoring capabilities.
 
 ---
 

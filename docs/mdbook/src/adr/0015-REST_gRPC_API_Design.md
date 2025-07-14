@@ -1,4 +1,4 @@
-Here's a detailed and structured initial draft of **ADR-0015: REST/gRPC API Design**, tailored to Tinkerbell’s high standards for clear interfaces, robust communication, and flexibility:
+Here's a detailed and structured initial draft of **ADR-0015: REST/gRPC API Design**, tailored to Tiffany’s high standards for clear interfaces, robust communication, and flexibility:
 
 ---
 
@@ -12,7 +12,7 @@ Proposed
 
 ## Context
 
-Tinkerbell’s autonomous agentic runtime requires clear, reliable, and performant external interfaces for interaction with users and external services. The interface must support:
+Tiffany’s autonomous agentic runtime requires clear, reliable, and performant external interfaces for interaction with users and external services. The interface must support:
 
 * External task submission.
 * Task status tracking and result retrieval.
@@ -198,7 +198,7 @@ GET /tasks/abc123
 
 ## 🚀 Industry-Leading Capabilities
 
-The dual REST/gRPC API approach positions Tinkerbell at the forefront of agentic runtime systems, providing unmatched developer ergonomics, interoperability, and communication efficiency.
+The dual REST/gRPC API approach positions Tiffany at the forefront of agentic runtime systems, providing unmatched developer ergonomics, interoperability, and communication efficiency.
 
 ---
 

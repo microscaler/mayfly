@@ -4,9 +4,9 @@
 Accepted
 
 ## Context
-The Tinkerbell project is a long-running agentic runtime that coordinates reasoning, code generation, tool usage, and durable memory across asynchronous and cooperative tasks. As we design and implement a sophisticated internal scheduler, coroutine-style agents, and multi-modal tool pipelines, the choice of Rust version is foundational.
+The Tiffany project is a long-running agentic runtime that coordinates reasoning, code generation, tool usage, and durable memory across asynchronous and cooperative tasks. As we design and implement a sophisticated internal scheduler, coroutine-style agents, and multi-modal tool pipelines, the choice of Rust version is foundational.
 
-Rust 2024 introduces first-class **coroutines**, a long-requested language feature that enables cooperative multitasking and stateful, yieldable computations — precisely the kind of behavior required by intelligent agent runtimes like Tinkerbell.
+Rust 2024 introduces first-class **coroutines**, a long-requested language feature that enables cooperative multitasking and stateful, yieldable computations — precisely the kind of behavior required by intelligent agent runtimes like Tiffany.
 
 Choosing a stable, long-term edition early is essential for architectural consistency and contributor alignment. This ADR proposes that we standardize the entire codebase on **Rust 2024 edition** and adopt its coroutine model as the preferred approach to all internal cooperative task flow and agent loop execution.
 
@@ -15,7 +15,7 @@ Choosing a stable, long-term edition early is essential for architectural consis
 ## Decision
 
 We will use:
-- `edition = "2024"` in all crates in the Tinkerbell workspace.
+- `edition = "2024"` in all crates in the Tiffany workspace.
 - Coroutine support as the primary concurrency model for:
     - Task scheduling
     - Agent step planning and reasoning
@@ -30,8 +30,8 @@ All crates should be compatible with the 2024 edition compiler. Contributors sho
 
 ## Rationale
 
-### ✨ Coroutines Are Native to Tinkerbell's Design
-Tinkerbell is built around the idea of long-lived agents that yield control during:
+### ✨ Coroutines Are Native to Tiffany's Design
+Tiffany is built around the idea of long-lived agents that yield control during:
 - LLM interactions (awaiting model output)
 - Tool execution (blocking shell commands or file I/O)
 - Multi-turn planning and execution
@@ -59,7 +59,7 @@ Coroutines are the best tool to model the behavior of an autonomous agent runtim
 - Cooperative scheduling
 - Parallel agents, each with their own state machine
 
-Tinkerbell already leans heavily toward micro-OS patterns (see `pyos8.py` inspiration). Coroutines complete the loop.
+Tiffany already leans heavily toward micro-OS patterns (see `pyos8.py` inspiration). Coroutines complete the loop.
 
 ### 🛠️ Improves Maintainability
 By standardizing early on 2024 edition and coroutines:
@@ -93,7 +93,7 @@ The Rust ecosystem will increasingly shift to coroutine-based runtimes (especial
 ---
 
 ## Related Documents
-- [Tinkerbell System Architecture and Design Overview](../whitepapers/Tinkerbell%20System%20Architecture%20and%20Design%20Overview.md)
+- [Tiffany System Architecture and Design Overview](../whitepapers/Tiffany%20System%20Architecture%20and%20Design%20Overview.md)
 - [Task Scheduler Design Notes](../whitepapers/task_scheduler.md)
 - [pyos8.py – Micro-OS inspiration](http://www.dabeaz.com/coroutines/pyos8.py)
 

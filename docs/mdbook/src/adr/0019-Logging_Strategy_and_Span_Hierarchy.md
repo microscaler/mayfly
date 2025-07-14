@@ -16,13 +16,13 @@ Common issues in logging for complex systems include:
 * **Lack of contextual tracing:** Limited ability to trace execution flow or diagnose issues.
 * **Inconsistent log levels and verbosity:** Excessive noise or insufficient detail for meaningful debugging.
 
-To address these, Tinkerbell requires a rigorous, structured logging strategy that leverages Rust’s advanced **tracing** framework, clear span hierarchies, structured logs, and consistent log level defaults.
+To address these, Tiffany requires a rigorous, structured logging strategy that leverages Rust’s advanced **tracing** framework, clear span hierarchies, structured logs, and consistent log level defaults.
 
 ---
 
 ## Decision
 
-We adopt the Rust **tracing** crate for structured logging and detailed tracing within Tinkerbell FAR infrastructure, explicitly defining span hierarchies, structured log events, and log level policies.
+We adopt the Rust **tracing** crate for structured logging and detailed tracing within Tiffany FAR infrastructure, explicitly defining span hierarchies, structured log events, and log level policies.
 
 ### Core Components:
 
@@ -36,7 +36,7 @@ We adopt the Rust **tracing** crate for structured logging and detailed tracing 
 
 ### 1. Structured Logging with Rust `tracing`
 
-Tinkerbell will adopt Rust’s `tracing` crate, providing structured logs for better parseability and integration with modern log management systems.
+Tiffany will adopt Rust’s `tracing` crate, providing structured logs for better parseability and integration with modern log management systems.
 
 **Log event format (JSON example):**
 
@@ -197,7 +197,7 @@ sequenceDiagram
 
 ## 🚀 Industry-Leading Capabilities
 
-This structured logging and tracing strategy significantly enhances Tinkerbell's ability to manage operational complexity, rapidly diagnose issues, and maintain transparency, positioning it as a leader in observability and autonomous agentic infrastructure management.
+This structured logging and tracing strategy significantly enhances Tiffany's ability to manage operational complexity, rapidly diagnose issues, and maintain transparency, positioning it as a leader in observability and autonomous agentic infrastructure management.
 
 ---
 

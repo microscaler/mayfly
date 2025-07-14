@@ -23,7 +23,7 @@ Existing agentic systems (LangChain, Claude, Gemini) fail to robustly address th
 ---
 
 ## Design Goals
-The Tinkerbell Persistent Memory Strategy explicitly aims to:
+The Tiffany Persistent Memory Strategy explicitly aims to:
 - Provide accurate long-term memory recall across multiple sessions.
 - Support dynamic evolution of memory reflecting shifting development preferences and standards.
 - Enable sophisticated reasoning that leverages historical decision chains and evolving semantic contexts.
@@ -117,7 +117,7 @@ sequenceDiagram
 
 ### 💾 Industry-Leading Robustness and Extensibility
 - Supports scalable integration with external vector databases and clustering solutions.
-- Positions Tinkerbell to lead industry standards by addressing significant agentic memory weaknesses explicitly and comprehensively.
+- Positions Tiffany to lead industry standards by addressing significant agentic memory weaknesses explicitly and comprehensively.
 
 ---
 
@@ -141,7 +141,7 @@ sequenceDiagram
 
 ## Comparative Analysis
 
-| Feature                              | LangChain | Claude | Gemini | Tinkerbell (Proposed) |
+| Feature                              | LangChain | Claude | Gemini | Tiffany (Proposed) |
 |--------------------------------------|-----------|--------|--------|-----------------------|
 | Semantic Memory                      | ✔️         | ✔️      | ✔️      | ✔️ (Enhanced, Versioned) |
 | Episodic Memory                      | Limited   | ❌      | ❌      | ✔️ (Comprehensive WAL-based) |
@@ -153,11 +153,11 @@ sequenceDiagram
 
 ## Related Documents
 - [ADR-0005: Virtual Canvas and GitOps Strategy](adr_0005_virtual_canvas_gitops.md)
-- [Tinkerbell System Architecture](../whitepapers/Tinkerbell%20System%20Architecture%20and%20Design%20Overview.md)
+- [Tiffany System Architecture](../whitepapers/Tiffany%20System%20Architecture%20and%20Design%20Overview.md)
 
 ---
 
 ## Adopted
-This ADR is adopted as of June 2025. The Tinkerbell persistent memory strategy will leverage a sophisticated semantic graph and embedding model to robustly handle evolving semantic contexts and temporal drift, significantly advancing the state-of-the-art for autonomous agentic systems.
+This ADR is adopted as of June 2025. The Tiffany persistent memory strategy will leverage a sophisticated semantic graph and embedding model to robustly handle evolving semantic contexts and temporal drift, significantly advancing the state-of-the-art for autonomous agentic systems.
 
 Maintainers: `@casibbald`, `@microscaler-team

@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Tinkerbell is designed as a globally adoptable agentic development platform. As such, future-facing support for multiple languages, cultural formatting standards, and locale-aware experiences is essential.
+Tiffany is designed as a globally adoptable agentic development platform. As such, future-facing support for multiple languages, cultural formatting standards, and locale-aware experiences is essential.
 
 While English will be the primary development and interaction language during early phases, we anticipate:
 

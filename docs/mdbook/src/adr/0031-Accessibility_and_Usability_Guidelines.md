@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Tinkerbell aims to empower a broad audience of developers, operators, and contributors through both CLI and browser-based interfaces. Accessibility and usability must be foundational—not optional—especially for:
+Tiffany aims to empower a broad audience of developers, operators, and contributors through both CLI and browser-based interfaces. Accessibility and usability must be foundational—not optional—especially for:
 
 - Users with visual impairments or cognitive differences
 - Non-native English speakers

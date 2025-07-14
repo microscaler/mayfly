@@ -115,9 +115,9 @@ def foo():
 
 ---
 
-## 🌟 **5. Relevance & Value to Tinkerbell Daemon**
+## 🌟 **5. Relevance & Value to Tiffany Daemon**
 
-Applying this architecture to **Tinkerbell** offers significant advantages:
+Applying this architecture to **Tiffany** offers significant advantages:
 
 ### ✅ **Advantages for your use-case:**
 
@@ -126,7 +126,7 @@ Applying this architecture to **Tinkerbell** offers significant advantages:
 * **Traceable state transitions**: Easier debugging, transparency in state and lifecycle management.
 * **Predictable & careful execution flow**: Aligns with your "one-foot-on-the-ground" cautious approach.
 
-### 💡 **Use Case Scenarios in Tinkerbell:**
+### 💡 **Use Case Scenarios in Tiffany:**
 
 * Agent executing a complex, multi-step workflow (e.g., code edit → git commit → API call → LLM query) as separate cooperative tasks.
 * Tasks handling different interactions (CLI vs API) concurrently yet clearly separated in the scheduler.
@@ -170,11 +170,11 @@ fn main() {
 
 ---
 
-## 🎯 **7. Recommended Architecture for Tinkerbell**
+## 🎯 **7. Recommended Architecture for Tiffany**
 
 Based on PyOS inspiration, I suggest adopting a hybrid Rust async + coroutine model:
 
-### ✅ **Tinkerbell Task Scheduler (Conceptual):**
+### ✅ **Tiffany Task Scheduler (Conceptual):**
 
 * Define explicit task states and transitions clearly.
 * Tasks (async or coroutine) yielding explicit commands similar to SysCall, allowing predictable scheduling and state management.
@@ -236,7 +236,7 @@ impl Scheduler {
 ## 🛠️ **8. Recommended Roadmap**
 
 * **Prototype a simple Rust Scheduler** inspired by PyOS (using async Rust).
-* **Define explicit commands/tasks** for Tinkerbell (LLM queries, API calls, filesystem ops).
+* **Define explicit commands/tasks** for Tiffany (LLM queries, API calls, filesystem ops).
 * **Implement simple coroutine/task model** (using tokio + explicit state machine).
 
 ---
@@ -244,14 +244,14 @@ impl Scheduler {
 ## 🚀 **Conclusion and Recommendation**
 
 Dave Beazley’s PyOS provides a clear and powerful task management blueprint. Its explicit task control, predictable
-scheduling, and structured system call mechanism align extremely well with your **Tinkerbell** vision.
+scheduling, and structured system call mechanism align extremely well with your **Tiffany** vision.
 
 For your Rust-based daemon, adapt these ideas into a hybrid coroutine/async system, managing tasks explicitly for predictability, clarity, and debug ease.
 
 Your next steps:
 
 * Prototype the Rust scheduler inspired by PyOS.
-* Define Tinkerbell-specific tasks and state transitions.
+* Define Tiffany-specific tasks and state transitions.
 * Validate with simple coroutine-style and async tasks.
 
 ## References:

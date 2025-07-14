@@ -14,7 +14,7 @@ To improve **ADR-0008: Persistent Agent Memory Strategy**, we should clearly add
   Outline a structured approach for version-aware semantic memory, including methods for retrieving current vs historical memory states.
 
 * **Agent Memory Limitations**:
-  Address known limitations from current systems (e.g., LangChain, Claude, Gemini), explicitly highlighting how Tinkerbell addresses them.
+  Address known limitations from current systems (e.g., LangChain, Claude, Gemini), explicitly highlighting how Tiffany addresses them.
 
 * **Semantic Graph & Vector Integration**:
   Recommend combining graph-based structures with embedding vectors to enable semantic similarity searches and flexible memory retrieval.

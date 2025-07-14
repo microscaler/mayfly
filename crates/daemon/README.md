@@ -1,6 +1,6 @@
-# Tinkerbell Daemon
+# Tiffany Daemon
 
-The `tinkerbell` binary — built from this crate — is the long-running process that powers a Tinkerbell agent inside a container or microVM.
+The `tinkerbell` binary — built from this crate — is the long-running process that powers a Tiffany agent inside a container or microVM.
 
 It is responsible for:
 

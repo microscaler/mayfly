@@ -321,7 +321,7 @@ mayfly/
 │   └── a2a.rs (planned)
 ```
 
-## Tinkerbell Daemon CLI
+## Tiffany Daemon CLI
 
 The `tinkerbell` binary exposes a few flags for customizing the runtime:
 

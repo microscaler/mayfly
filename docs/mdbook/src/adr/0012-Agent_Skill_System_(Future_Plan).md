@@ -16,7 +16,7 @@ Current agent systems often suffer from:
 * **Lack of Modularity:** Skills tightly coupled within a single agent limit reuse and flexibility.
 * **Limited Composability:** Single-agent systems struggle to dynamically orchestrate multi-skill scenarios effectively.
 
-To address these shortcomings, Tinkerbell's future plans include not only robust modular skill composition but also structured organization of agents into specialized clusters—referred to as **Hexagonal Skilled Clusters**—that simulate distinct human personas or teams in a software development lifecycle.
+To address these shortcomings, Tiffany's future plans include not only robust modular skill composition but also structured organization of agents into specialized clusters—referred to as **Hexagonal Skilled Clusters**—that simulate distinct human personas or teams in a software development lifecycle.
 
 ---
 
@@ -176,7 +176,7 @@ sequenceDiagram
 
 ## 🚀 Industry-Leading Capabilities
 
-The introduction of specialized, persona-driven Hexagonal Skilled Clusters will significantly elevate Tinkerbell’s capabilities beyond current industry practices, providing a uniquely scalable, modular, and human-like collaborative agent runtime.
+The introduction of specialized, persona-driven Hexagonal Skilled Clusters will significantly elevate Tiffany’s capabilities beyond current industry practices, providing a uniquely scalable, modular, and human-like collaborative agent runtime.
 
 ---
 

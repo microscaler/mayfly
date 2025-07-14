@@ -4,12 +4,12 @@
 Accepted
 
 ## Context
-Tinkerbell agents execute reasoning and action loops that produce edits to codebases and configuration files. These changes must be:
+Tiffany agents execute reasoning and action loops that produce edits to codebases and configuration files. These changes must be:
 - Previewed and isolated in-memory before committing
 - Committed to a Git-compatible format for auditing
 - Logged as durable steps in the WAL
 
-To achieve this, Tinkerbell introduces a **Virtual Canvas** that acts as a mutable, ephemeral buffer for applying LLM-generated or tool-generated edits prior to Git integration.
+To achieve this, Tiffany introduces a **Virtual Canvas** that acts as a mutable, ephemeral buffer for applying LLM-generated or tool-generated edits prior to Git integration.
 
 This ADR defines the structure of the virtual canvas, our Git branching strategy, the use of micro-commits, and how patches flow from the canvas into Git and ultimately `main`.
 
@@ -145,7 +145,7 @@ sequenceDiagram
 
 ## Related Documents
 - [ADR-0004: Agent Loop and ReAct Design](adr_0004_agent_loop_react.md)
-- [Tinkerbell System Architecture](../whitepapers/Tinkerbell%20System%20Architecture%20and%20Design%20Overview.md)
+- [Tiffany System Architecture](../whitepapers/Tiffany%20System%20Architecture%20and%20Design%20Overview.md)
 
 ---
 
