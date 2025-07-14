@@ -1,0 +1,1 @@
+searchState.loadedDescShard("docsbookgen", 0, "Internal utilities for the docsbookgen binary.\nThe name of the docs generation tool used for testing.\nReturns the tool name.")

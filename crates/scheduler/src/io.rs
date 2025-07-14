@@ -1,6 +1,6 @@
 use std::os::unix::io::RawFd;
 
-/// Source of I/O readiness that can be registered with [`Scheduler`].
+/// Source of I/O readiness that can be registered with \[`Scheduler`\].
 ///
 /// Implementors provide access to the underlying file descriptor and a stable
 /// identifier used by the scheduler when waiting for readiness events.

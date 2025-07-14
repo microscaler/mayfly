@@ -7,7 +7,7 @@ use std::path::Path;
 /// that receives a single notification when either signal is delivered.
 ///
 /// The channel is backed by a dedicated thread that waits on a
-/// [`signal_hook::iterator::Signals`] instance. This keeps the signal handling
+/// \[`signal_hook::iterator::Signals`\] instance. This keeps the signal handling
 /// minimal and allows the rest of the daemon to poll the receiver without
 /// blocking.
 pub fn shutdown_channel() -> anyhow::Result<Receiver<()>> {

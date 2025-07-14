@@ -30,7 +30,7 @@ struct Cli {
 /// Main entry point for the `tinkerbell` daemon binary.
 ///
 /// Parses command line arguments, configures logging, loads the
-/// configuration from disk, and delegates execution to [`daemon::run`].
+/// configuration from disk, and delegates execution to \[`daemon::run`\].
 #[tracing::instrument]
 fn main() -> anyhow::Result<()> {
     // Parse CLI flags

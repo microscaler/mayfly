@@ -298,11 +298,11 @@ impl Scheduler {
 
     /// Spawn a new coroutine task reserved for internal system work.
     ///
-    /// System tasks use [`PRI_SYSTEM`] to ensure they run before normal
-    /// user tasks. See [`spawn_with_priority`] for details.
+    /// System tasks use \[`PRI_SYSTEM`\] to ensure they run before normal
+    /// user tasks. See \[`spawn_with_priority`\] for details.
     ///
     /// # Safety
-    /// This method ultimately delegates to [`may::coroutine::spawn`]. The
+    /// This method ultimately delegates to \[`may::coroutine::spawn`\]. The
     /// caller must guarantee that the provided closure does not reference
     /// data which could be invalid once the task begins execution.
     pub unsafe fn spawn_system<F>(&mut self, f: F) -> TaskId

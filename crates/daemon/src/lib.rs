@@ -40,7 +40,7 @@ pub fn looptask_wal_flush(ctx: TaskContext) {
 
 /// Loop task responsible for pushing runtime metrics.
 ///
-/// Similar to [`looptask_wal_flush`], this task emits PAL events so tests can
+/// Similar to \[`looptask_wal_flush`\], this task emits PAL events so tests can
 /// verify that it started. Real implementations would collect and export
 /// metrics to a monitoring system.
 #[instrument(skip(ctx))]
@@ -66,8 +66,8 @@ pub fn run(cfg: Config, dump_state: bool) -> anyhow::Result<()> {
 
 /// Drive the scheduler until a shutdown signal is received.
 ///
-/// This loops over [`Scheduler::run`] to process any queued tasks and waits for
-/// a termination notification from [`signal::shutdown_channel`]. When the
+/// This loops over \[`Scheduler::run`\] to process any queued tasks and waits for
+/// a termination notification from \[`signal::shutdown_channel`\]. When the
 /// scheduler becomes idle it blocks on the receiver for a short interval so
 /// that the loop does not busy spin.
 #[instrument(skip(sched))]
@@ -94,7 +94,7 @@ fn run_blocking(sched: &mut Scheduler, dump: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Daemon state returned from [`init`].
+/// Daemon state returned from \[`init`\].
 pub struct Daemon {
     cfg: Config,
 }

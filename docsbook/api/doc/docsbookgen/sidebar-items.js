@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["TOOL_NAME"],"fn":["tool_name"]};

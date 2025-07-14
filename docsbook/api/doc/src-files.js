@@ -1,0 +1,2 @@
+createSrcSidebar('[["daemon",["",[],["config.rs","http.rs","lib.rs","pal.rs","signal.rs"]]],["docsbookgen",["",[],["lib.rs"]]],["metrics",["",[],["lib.rs"]]],["scheduler",["",[],["clock.rs","io.rs","lib.rs","pal.rs","ready_queue.rs","scheduler.rs","syscall.rs","task.rs","wait_map.rs"]]],["tinkerbell",["",[],["tinkerbell.rs"]]],["wal",["",[],["lib.rs"]]]]');
+//{"start":19,"fragment_lengths":[72,35,31,130,41,27]}

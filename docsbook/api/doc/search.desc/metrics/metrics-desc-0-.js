@@ -1,0 +1,1 @@
+searchState.loadedDescShard("metrics", 0, "Metrics library module placeholder.\nPlaceholder public constant used for compile tests.\nReturns the placeholder string for testing.")

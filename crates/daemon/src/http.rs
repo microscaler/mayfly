@@ -22,7 +22,7 @@ pub const DEFAULT_ADDR: &str = "127.0.0.1:3000";
 
 /// Handle to the background HTTP server.
 ///
-/// Dropping the handle does not stop the server; call [`shutdown`] to
+/// Dropping the handle does not stop the server; call \[`shutdown`\] to
 /// terminate it and wait for the thread to exit.
 pub struct HttpServer {
     shutdown: oneshot::Sender<()>,
@@ -32,7 +32,7 @@ pub struct HttpServer {
 impl HttpServer {
     /// Spawn a new HTTP server bound to `addr`.
     ///
-    /// The returned [`HttpServer`] can be used to signal shutdown once the
+    /// The returned \[`HttpServer`\] can be used to signal shutdown once the
     /// daemon is terminating.
     #[instrument]
     pub fn start(addr: SocketAddr) -> anyhow::Result<Self> {
