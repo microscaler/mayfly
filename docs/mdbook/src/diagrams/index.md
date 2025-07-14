@@ -1,4 +1,4 @@
-# Tinkerbell System Diagrams
+# Tiffany System Diagrams
 
 This section contains visual documentation and sequence diagrams for:
 

@@ -4,7 +4,7 @@ use tracing_subscriber::{EnvFilter, fmt};
 
 /// Command line arguments for the `tinkerbell` daemon.
 #[derive(Parser, Debug)]
-#[command(name = "tinkerbell", about = "Run the Tinkerbell daemon")]
+#[command(name = "tinkerbell", about = "Run the Tiffany daemon")]
 struct Cli {
     /// Path to the configuration file.
     #[arg(value_name = "PATH", default_value = "config.toml")]

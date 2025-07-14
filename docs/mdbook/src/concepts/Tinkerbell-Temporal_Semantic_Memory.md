@@ -1,4 +1,4 @@
-## 📄 Tinkerbell: Temporal Semantic Memory
+## 📄 Tiffany: Temporal Semantic Memory
 
 ---
 
@@ -14,7 +14,7 @@ The result: agents misplace files, rewrite deleted components, or resurrect depr
 
 ---
 
-### ❌ Before Tinkerbell
+### ❌ Before Tiffany
 
 Without temporal semantic memory, agents behave like stateless optimizers with short-term recall:
 
@@ -29,14 +29,14 @@ Even when documents are RAG'ed from disk, there is no reliable sense of what the
 
 ---
 
-### ✅ What Tinkerbell Introduces
+### ✅ What Tiffany Introduces
 
-Tinkerbell encodes memory into a **temporal, versioned semantic graph**, enriched with embeddings for similarity queries. We introduce:
+Tiffany encodes memory into a **temporal, versioned semantic graph**, enriched with embeddings for similarity queries. We introduce:
 
 * 🧠 **Semantic Memory Graph** — Nodes for `File`, `Function`, `Fact`, `AgentPlan`, `Patch`
 * 🧭 **Temporal Versioning** — `(:Fact)-[:UPDATED_BY]->(:Fact)` chains for all symbols
 * 🧬 **Vector Snapshots** — `VecStore` stores embeddings per versioned semantic node
-* 📅 **Active Timeline View** — Tinkerbell always knows: what is now, what used to be, and why it changed
+* 📅 **Active Timeline View** — Tiffany always knows: what is now, what used to be, and why it changed
 
 ---
 
@@ -67,7 +67,7 @@ In other systems:
 * This info is overwritten or ignored in new sessions.
 * Agent repeats the error again, forgetting you ever fixed it.
 
-In Tinkerbell:
+In Tiffany:
 
 * A `MemoryFact` about `test_directory_convention` is updated.
 * The old version is retained, the new is marked active.
@@ -79,7 +79,7 @@ In Tinkerbell:
 
 ---
 
-### 🔮 After Tinkerbell: New Possibilities
+### 🔮 After Tiffany: New Possibilities
 
 | Feature                       | Enabled by Temporal Memory                      |
 | ----------------------------- | ----------------------------------------------- |

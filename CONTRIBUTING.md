@@ -1,7 +1,7 @@
 
-# 🤝 Contributing to Tinkerbell
+# 🤝 Contributing to Tiffany
 
-Welcome! We're excited you're interested in contributing to **Tinkerbell**, an autonomous agentic runtime built in Rust.
+Welcome! We're excited you're interested in contributing to **Tiffany**, an autonomous agentic runtime built in Rust.
 
 This document outlines our contribution philosophy, coding standards, and the processes we use to maintain project quality — especially our emphasis on **Test-Driven Development**, **comprehensive documentation**, and **system-level reproducibility**.
 
@@ -117,5 +117,5 @@ Then mark the PR title with `BREAKING:` and ping a maintainer for review.
 
 ---
 
-Thank you for helping build **Tinkerbell** into a powerful, safe, and self-aware runtime! ✨
+Thank you for helping build **Tiffany** into a powerful, safe, and self-aware runtime! ✨
 

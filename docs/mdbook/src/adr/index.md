@@ -1,6 +1,6 @@
-# Tinkerbell ADR Index
+# Tiffany ADR Index
 
-This document tracks relevant Architectural Decision Records (ADRs) for the Tinkerbell agentic runtime project. ADRs are numbered sequentially and grouped by functional domain.
+This document tracks relevant Architectural Decision Records (ADRs) for the Tiffany agentic runtime project. ADRs are numbered sequentially and grouped by functional domain.
 
 ## 🗂️ Summary of Additional ADR Recommendations:
 
@@ -90,7 +90,7 @@ This document tracks relevant Architectural Decision Records (ADRs) for the Tink
 ## 🧩 Modularity & Extensibility
 
 - **ADR-0011**: Plugin and MCP Tooling Architecture  
-  How Tinkerbell integrates internal and external tools securely and generically.
+  How Tiffany integrates internal and external tools securely and generically.
 
 - **ADR-0012-**: Agent Skill System (Future Plan)  
   Representation of agent capabilities as composable skills.

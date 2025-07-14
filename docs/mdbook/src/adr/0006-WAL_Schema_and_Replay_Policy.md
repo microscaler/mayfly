@@ -4,9 +4,9 @@
 Accepted
 
 ## Context
-The Write-Ahead Log (WAL) in Tinkerbell provides durable, append-only storage for agent activity, execution steps, and Git-integrated state transitions. It is a core component in ensuring fault tolerance, crash recovery, and task auditability.
+The Write-Ahead Log (WAL) in Tiffany provides durable, append-only storage for agent activity, execution steps, and Git-integrated state transitions. It is a core component in ensuring fault tolerance, crash recovery, and task auditability.
 
-As the Tinkerbell agent runtime handles multiple concurrent tasks, LLM responses, tool invocations, and virtual canvas operations, the WAL must encode enough structured information to allow:
+As the Tiffany agent runtime handles multiple concurrent tasks, LLM responses, tool invocations, and virtual canvas operations, the WAL must encode enough structured information to allow:
 - Resuming interrupted tasks
 - Replaying task progress deterministically
 - Cross-checking Git commit state and canvas deltas

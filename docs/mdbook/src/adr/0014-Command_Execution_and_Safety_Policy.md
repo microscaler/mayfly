@@ -1,4 +1,4 @@
-Here's a detailed and structured initial draft of **ADR-0014: Command Execution and Safety Policy**, tailored explicitly to Tinkerbell’s high standards for secure, controlled, and auditable command execution:
+Here's a detailed and structured initial draft of **ADR-0014: Command Execution and Safety Policy**, tailored explicitly to Tiffany’s high standards for secure, controlled, and auditable command execution:
 
 ---
 
@@ -18,7 +18,7 @@ Autonomous agentic runtimes inevitably must execute commands within isolated env
 * **Unexpected system changes**: Inadvertent destructive operations.
 * **Lack of transparency and auditability**: Opaque execution flows leading to challenging debugging and auditing scenarios.
 
-Tinkerbell requires a comprehensive strategy to ensure secure, transparent, and controlled command execution, clearly defining safety boundaries, auditability, and exception-handling mechanisms, along with a mechanism for explicitly accepting risks (`--yolo` mode).
+Tiffany requires a comprehensive strategy to ensure secure, transparent, and controlled command execution, clearly defining safety boundaries, auditability, and exception-handling mechanisms, along with a mechanism for explicitly accepting risks (`--yolo` mode).
 
 ---
 
@@ -32,7 +32,7 @@ We adopt a rigorous **Command Execution and Safety Policy**, leveraging explicit
 
 ### 1. Command Execution Flow
 
-Command execution within Tinkerbell will follow a strict, staged flow:
+Command execution within Tiffany will follow a strict, staged flow:
 
 * **Pre-validation**: All commands undergo explicit safety validation.
 * **Trust Boundary Enforcement**: Commands execute only within predefined boundaries (e.g., specific directories, isolated MicroVMs).
@@ -146,7 +146,7 @@ sequenceDiagram
 
 ## 🚀 Industry-Leading Capabilities
 
-This structured and explicit Command Execution and Safety Policy significantly enhances Tinkerbell’s operational security, risk transparency, and auditability, setting a clear benchmark in agentic runtime execution safety.
+This structured and explicit Command Execution and Safety Policy significantly enhances Tiffany’s operational security, risk transparency, and auditability, setting a clear benchmark in agentic runtime execution safety.
 
 ---
 

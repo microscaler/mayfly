@@ -4,7 +4,7 @@
 
 ## ❓ Why Now?
 
-Autonomous agents like Tinkerbell require isolated, reproducible, and resource-constrained execution environments — much like microVMs.
+Autonomous agents like Tiffany require isolated, reproducible, and resource-constrained execution environments — much like microVMs.
 
 Google’s Gemini CLI and other systems assume developer desktops or ephemeral cloud sandboxes. But these models break down when:
 
@@ -44,7 +44,7 @@ But that’s exactly where it becomes unsuitable for our needs.
 | Assumes each VM is a K8s node | ✅ Yes                          | ❌ No — VMs run agents, not Kubelets    |
 | Creates worker node infra     | ✅ Cloud-init, bootstrapping    | ❌ We want agent workloads, not nodes   |
 | Built for CAPI                | ✅ Cluster API standard         | ❌ We want independent micro agent pods |
-| Requires Kubernetes bootstrap | ✅ kubeadm/cloud-init flows     | ❌ We boot directly to Tinkerbell agent |
+| Requires Kubernetes bootstrap | ✅ kubeadm/cloud-init flows     | ❌ We boot directly to Tiffany agent |
 
 Thus, while Flintlock is ideal as a backend runtime, `cluster-api-provider-microvm` introduces an entire stack of node-management logic we do not want — and cannot reuse.
 
@@ -52,7 +52,7 @@ Thus, while Flintlock is ideal as a backend runtime, `cluster-api-provider-micro
 
 ## ✅ What We Will Build
 
-### 🧠 The `far-agent-controller` (Tinkerbell Native)
+### 🧠 The `far-agent-controller` (Tiffany Native)
 
 A Kubernetes controller that:
 

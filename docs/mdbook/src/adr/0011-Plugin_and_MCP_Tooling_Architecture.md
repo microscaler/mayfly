@@ -8,7 +8,7 @@ Proposed
 
 ## Context
 
-Autonomous agentic runtimes, such as Tinkerbell, often require external capabilities to perform specialized tasks. These capabilities could range from internal tooling (e.g., code analysis, semantic graphing) to external Managed Capability Providers (MCPs), such as search services, external APIs, or complex computational tasks.
+Autonomous agentic runtimes, such as Tiffany, often require external capabilities to perform specialized tasks. These capabilities could range from internal tooling (e.g., code analysis, semantic graphing) to external Managed Capability Providers (MCPs), such as search services, external APIs, or complex computational tasks.
 
 Existing agentic systems frequently suffer from:
 
@@ -16,7 +16,7 @@ Existing agentic systems frequently suffer from:
 * **Security Vulnerabilities:** Direct access to external tools can introduce vulnerabilities or compliance issues.
 * **Weak Abstraction Layers:** Inconsistent interfaces across tools complicate maintenance and scalability.
 
-To address these concerns, Tinkerbell requires a standardized, secure, and extensible plugin architecture for internal tools and external MCPs.
+To address these concerns, Tiffany requires a standardized, secure, and extensible plugin architecture for internal tools and external MCPs.
 
 ---
 
@@ -61,7 +61,7 @@ pub trait CapabilityProvider {
 
 ## 🔐 Security Model (Detailed)
 
-* **MicroVM Isolation:** Prevents unauthorized access to Tinkerbell’s core state.
+* **MicroVM Isolation:** Prevents unauthorized access to Tiffany’s core state.
 * **RPC with Authentication:** Mutual TLS (mTLS) or token-based authentication between agent core and MCPs/plugins.
 * **Minimal Privilege Principle:** Plugins have the least privileges needed for their function.
 * **Audit Logging:** All plugin interactions are logged in the WAL/PAL for auditing and debugging.
@@ -93,7 +93,7 @@ sequenceDiagram
 
 ## 🛠️ Practical Example Scenario (Mock):
 
-**Scenario**: "Tinkerbell agent invoking an external MCP (Google Search MCP) to retrieve information."
+**Scenario**: "Tiffany agent invoking an external MCP (Google Search MCP) to retrieve information."
 
 **Steps:**
 
@@ -132,7 +132,7 @@ sequenceDiagram
 
 ## 🚀 Industry-Leading Capabilities
 
-This secure, isolated, and extensible plugin and MCP architecture positions Tinkerbell at the forefront of autonomous agentic runtime solutions, significantly exceeding current industry practices in modularity, security, and scalability.
+This secure, isolated, and extensible plugin and MCP architecture positions Tiffany at the forefront of autonomous agentic runtime solutions, significantly exceeding current industry practices in modularity, security, and scalability.
 
 ---
 

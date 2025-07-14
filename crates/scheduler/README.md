@@ -1,6 +1,6 @@
-# Tinkerbell Scheduler
+# Tiffany Scheduler
 
-The `scheduler` crate implements Tinkerbell’s coroutine-based cooperative task scheduler.
+The `scheduler` crate implements Tiffany’s coroutine-based cooperative task scheduler.
 
 > ✅ This crate is a **minimal MVP** that focuses on building and testing the fundamental task management loop — before any agentic cognition is added.
 

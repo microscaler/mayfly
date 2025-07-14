@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Tinkerbell is designed to run as a horizontally scalable, distributed agentic system. It may operate across:
+Tiffany is designed to run as a horizontally scalable, distributed agentic system. It may operate across:
 
 - On-premises compute nodes (e.g. bare metal blades)
 - Cloud environments (GCP, AWS, Azure)

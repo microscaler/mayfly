@@ -1,6 +1,6 @@
-# Tinkerbell Runtime Model
+# Tiffany Runtime Model
 
-Tinkerbell is a coroutine-first agentic runtime built around the idea of deterministic, traceable, yield-driven execution for autonomous system tasks.
+Tiffany is a coroutine-first agentic runtime built around the idea of deterministic, traceable, yield-driven execution for autonomous system tasks.
 
 ---
 

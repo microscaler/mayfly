@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Tinkerbell's architecture must support:
+Tiffany's architecture must support:
 
 - Concurrent multi-agent task execution (within and across nodes)
 - Real-time skill invocation and coordination

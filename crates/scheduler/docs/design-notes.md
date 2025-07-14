@@ -1,6 +1,6 @@
 # Scheduler Design Notes: Coroutine Strategy
 
-Tinkerbell's coroutine scheduler is based on the pyos8 model — cooperative, deterministic, and traceable.
+Tiffany's coroutine scheduler is based on the pyos8 model — cooperative, deterministic, and traceable.
 
 This document explores candidate coroutine engines and outlines the strategy for evolving coroutine support within the scheduler crate.
 

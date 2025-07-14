@@ -8,7 +8,7 @@ Proposed
 
 ## Context
 
-Effective observability is essential for reliable operation, debugging, and continuous improvement of the Tinkerbell FAR infrastructure. Metrics provide quantitative insights into performance, reliability, and resource usage of FAR agents, orchestrators, and infrastructure components.
+Effective observability is essential for reliable operation, debugging, and continuous improvement of the Tiffany FAR infrastructure. Metrics provide quantitative insights into performance, reliability, and resource usage of FAR agents, orchestrators, and infrastructure components.
 
 Challenges faced by current systems include:
 
@@ -22,7 +22,7 @@ To address these, a clearly defined Metrics Policy and Instrumentation Plan is r
 
 ## Decision
 
-We adopt a structured and rigorous **Metrics Policy and Instrumentation Plan**, explicitly defining Prometheus metrics conventions, structured labels, and dashboard philosophy, ensuring comprehensive visibility and actionable insights across Tinkerbell FAR infrastructure.
+We adopt a structured and rigorous **Metrics Policy and Instrumentation Plan**, explicitly defining Prometheus metrics conventions, structured labels, and dashboard philosophy, ensuring comprehensive visibility and actionable insights across Tiffany FAR infrastructure.
 
 ### Core Goals:
 
@@ -157,7 +157,7 @@ sequenceDiagram
 
 ## 🚀 Industry-Leading Capabilities
 
-The proposed Metrics Policy and Instrumentation Plan significantly enhances Tinkerbell’s operational excellence, providing clear, actionable, and comprehensive visibility into the FAR infrastructure, positioning it as a leader in observability and agentic runtime operations.
+The proposed Metrics Policy and Instrumentation Plan significantly enhances Tiffany’s operational excellence, providing clear, actionable, and comprehensive visibility into the FAR infrastructure, positioning it as a leader in observability and agentic runtime operations.
 
 ---
 

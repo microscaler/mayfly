@@ -4,7 +4,7 @@
 Proposed
 
 ## Context
-Tinkerbell’s architecture involves persistent agent memory (graph + vector), detailed execution logs (WAL, PAL), and potential handling of sensitive user data (e.g., source code, commit authors, system metadata).
+Tiffany’s architecture involves persistent agent memory (graph + vector), detailed execution logs (WAL, PAL), and potential handling of sensitive user data (e.g., source code, commit authors, system metadata).
 
 To maintain trust, legal compliance, and operational hygiene, we must clearly define:
 
@@ -13,7 +13,7 @@ To maintain trust, legal compliance, and operational hygiene, we must clearly de
 - Under what controls
 - And how data deletion, redaction, or masking are handled in practice
 
-This ADR formalizes retention tiers and provides guarantees that Tinkerbell can operate in privacy-conscious or regulated environments.
+This ADR formalizes retention tiers and provides guarantees that Tiffany can operate in privacy-conscious or regulated environments.
 
 ---
 

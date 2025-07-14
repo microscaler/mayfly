@@ -1,4 +1,4 @@
-Here's a detailed initial draft of **ADR-0013: Firecracker MicroVM Integration**, tailored specifically to Tinkerbell's sophisticated requirements for isolation, security, and performance:
+Here's a detailed initial draft of **ADR-0013: Firecracker MicroVM Integration**, tailored specifically to Tiffany's sophisticated requirements for isolation, security, and performance:
 
 ---
 
@@ -20,9 +20,9 @@ Currently, many agent runtimes rely on less isolated execution models such as co
 * **Resource contention:** Less predictable performance and resource management.
 * **Limited security:** Higher vulnerability surface due to shared kernel namespaces.
 
-To mitigate these limitations, Tinkerbell requires a highly secure, performant, and isolated runtime environment for executing tasks and managing plugins and MCPs.
+To mitigate these limitations, Tiffany requires a highly secure, performant, and isolated runtime environment for executing tasks and managing plugins and MCPs.
 
-Tinkerbell’s requirements:
+Tiffany’s requirements:
 * **Robust Security and Isolation** Critical for arbitrary code and external MCP execution.
 * **Predictable Resource Allocation** Reliable and consistent performance.
 * **Scalable Infrastructure** Efficiently support clusters of FAR agents distributed across hardware nodes.
@@ -261,9 +261,9 @@ sequenceDiagram
 
 ## 🚀 Industry-Leading Capabilities
 
-This sophisticated deployment and isolation model positions Tinkerbell as an industry leader, demonstrating cutting-edge integration of isolation, dynamic LLM routing, and scalability through structured FAR agent clusters.
+This sophisticated deployment and isolation model positions Tiffany as an industry leader, demonstrating cutting-edge integration of isolation, dynamic LLM routing, and scalability through structured FAR agent clusters.
 
-Adopting Firecracker MicroVMs positions Tinkerbell at the cutting edge of secure, performant, isolated agentic execution environments, providing unmatched reliability, security, and auditability in autonomous agentic runtimes.
+Adopting Firecracker MicroVMs positions Tiffany at the cutting edge of secure, performant, isolated agentic execution environments, providing unmatched reliability, security, and auditability in autonomous agentic runtimes.
 
 ---
 

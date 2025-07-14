@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Tinkerbell may be deployed into regulated environments—enterprises, public sector, and AI-driven developer platforms—requiring strong guarantees around:
+Tiffany may be deployed into regulated environments—enterprises, public sector, and AI-driven developer platforms—requiring strong guarantees around:
 
 - Data handling
 - Auditability
@@ -88,7 +88,7 @@ Deletion is authorized via elevated control plane privilege (`admin.data` scope)
 
 - Requires hard boundaries between system logs (WAL) and observability logs (PAL)
 - Agents must expose structured audit output over gRPC or push to stream
-- Teams adopting Tinkerbell in regulated environments must configure:
+- Teams adopting Tiffany in regulated environments must configure:
   - Retention duration
   - Audit log sink
   - Regional data sovereignty requirements

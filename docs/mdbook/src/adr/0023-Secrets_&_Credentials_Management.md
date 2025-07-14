@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Tinkerbell's distributed runtime interacts with source control (e.g. GitHub), container registries, external APIs, and internal tools — all of which require secure credential handling. Furthermore, FAR agents may dynamically receive, inject, or rotate secrets, especially when performing system calls, provisioning resources, or accessing private tools.
+Tiffany's distributed runtime interacts with source control (e.g. GitHub), container registries, external APIs, and internal tools — all of which require secure credential handling. Furthermore, FAR agents may dynamically receive, inject, or rotate secrets, especially when performing system calls, provisioning resources, or accessing private tools.
 
 Security principles such as least privilege, explicit scoping, and strong auditing are essential to avoid lateral escalation or leakage of secrets within the runtime.
 

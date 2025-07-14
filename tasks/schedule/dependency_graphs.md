@@ -3,7 +3,7 @@ mayfly/tasks/scheduler/dependency_graphs.md
 
 ## Overview
 
-This PRD proposes an enhancement to the Tinkerbell Scheduler to support explicit, robust, and scalable task dependencies using a Directed Acyclic Graph (DAG) model. This will enable deterministic execution of complex workflows, maximize concurrency, and eliminate flakiness in tests and production systems.
+This PRD proposes an enhancement to the Tiffany Scheduler to support explicit, robust, and scalable task dependencies using a Directed Acyclic Graph (DAG) model. This will enable deterministic execution of complex workflows, maximize concurrency, and eliminate flakiness in tests and production systems.
 
 ---
 

@@ -8,9 +8,9 @@ Proposed
 
 ## Context
 
-Tinkerbell's FAR infrastructure leverages LiquidMetal’s Flintlock and Firecracker MicroVMs for secure, isolated execution of autonomous agent workloads. LiquidMetal provides a Kubernetes-native orchestrator known as [Cluster API Provider MicroVM (CAPMVM)](https://github.com/liquidmetal-dev/cluster-api-provider-microvm), a Cluster API provider managing Firecracker VMs as Kubernetes cluster nodes.
+Tiffany's FAR infrastructure leverages LiquidMetal’s Flintlock and Firecracker MicroVMs for secure, isolated execution of autonomous agent workloads. LiquidMetal provides a Kubernetes-native orchestrator known as [Cluster API Provider MicroVM (CAPMVM)](https://github.com/liquidmetal-dev/cluster-api-provider-microvm), a Cluster API provider managing Firecracker VMs as Kubernetes cluster nodes.
 
-However, Tinkerbell's FAR agents do **not function as Kubernetes nodes**—they are standalone workloads with specialized lifecycle management (sleep, resurrect, blocked states). Thus, CAPMVM is not directly suitable for orchestrating FAR agents.
+However, Tiffany's FAR agents do **not function as Kubernetes nodes**—they are standalone workloads with specialized lifecycle management (sleep, resurrect, blocked states). Thus, CAPMVM is not directly suitable for orchestrating FAR agents.
 
 ### CAPMVM Overview:
 
@@ -23,7 +23,7 @@ However, Tinkerbell's FAR agents do **not function as Kubernetes nodes**—they 
 
 * CAPMVM explicitly manages Firecracker MicroVMs as Kubernetes nodes.
 * FAR agents have different lifecycle semantics (sleep, resurrect, blocked, etc.) and are not Kubernetes nodes.
-* Tinkerbell requires custom scheduling and orchestration logic.
+* Tiffany requires custom scheduling and orchestration logic.
 
 Thus, a custom Kubernetes controller inspired by CAPMVM but specialized for FAR agent semantics is required.
 

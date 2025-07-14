@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Tinkerbell’s autonomous runtime operates as a long-lived coroutine-based execution platform with agent-local state, skill graphs, and persistent semantic memory. Ensuring the reliability and durability of this system across restarts, hardware failures, or service interruptions is critical. This ADR defines the system-wide approach for backup, disaster recovery, and failover—including coverage for WAL (Write-Ahead Log), PAL (Process Activity Log), vector memory embeddings, and graph state.
+Tiffany’s autonomous runtime operates as a long-lived coroutine-based execution platform with agent-local state, skill graphs, and persistent semantic memory. Ensuring the reliability and durability of this system across restarts, hardware failures, or service interruptions is critical. This ADR defines the system-wide approach for backup, disaster recovery, and failover—including coverage for WAL (Write-Ahead Log), PAL (Process Activity Log), vector memory embeddings, and graph state.
 
 ## Decision
 

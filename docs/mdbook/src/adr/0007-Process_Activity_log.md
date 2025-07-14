@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-While the Write-Ahead Log (WAL) guarantees task durability and auditability in Tinkerbell, it is not suited for **real-time observability**. Users and dashboards need visibility into what the system is currently doing — not just what it has already persisted.
+While the Write-Ahead Log (WAL) guarantees task durability and auditability in Tiffany, it is not suited for **real-time observability**. Users and dashboards need visibility into what the system is currently doing — not just what it has already persisted.
 
 To address this, we introduce the **Process Activity Log (PAL)**, a real-time, ephemeral streaming mechanism for broadcasting the active state of each agent task as it progresses through its coroutine lifecycle.
 
@@ -20,7 +20,7 @@ PALs are not commonly implemented in most systems. However, in the context of an
 
 ## Decision
 
-Tinkerbell will maintain a separate PAL channel per running task, broadcasting structured `ActivityEvent` objects to all connected consumers (CLI, dashboards, logs).
+Tiffany will maintain a separate PAL channel per running task, broadcasting structured `ActivityEvent` objects to all connected consumers (CLI, dashboards, logs).
 
 ### PAL Characteristics
 - Non-durable, ephemeral (not fsynced or written to disk)
@@ -53,7 +53,7 @@ Tinkerbell will maintain a separate PAL channel per running task, broadcasting s
 - `Completed`
 
 ### PAL Channel Infrastructure
-- Each Tinkerbell runtime instance will maintain an async broadcast stream (`tokio::broadcast`) for each task
+- Each Tiffany runtime instance will maintain an async broadcast stream (`tokio::broadcast`) for each task
 - The CLI and UI connect as **subscribers**, filtered by task ID
 - Internal PAL server optionally bridges these into REST, WebSocket, or external pub/sub systems
 
@@ -152,7 +152,7 @@ This enables:
 ## Related Documents
 - [ADR-0006: WAL Schema and Replay Policy](adr_0006_wal_schema_replay.md)
 - [ADR-0004: Agent Loop and ReAct Design](adr_0004_agent_loop_react.md)
-- [Tinkerbell System Architecture](../whitepapers/Tinkerbell%20System%20Architecture%20and%20Design%20Overview.md)
+- [Tiffany System Architecture](../whitepapers/Tiffany%20System%20Architecture%20and%20Design%20Overview.md)
 
 ---
 

@@ -16,7 +16,7 @@ Autonomous agents must retain long-lived, queryable memory to:
 - Retrieve relationships between source code, features, commits, and goals
 - Support long-term interaction continuity and project context
 
-Tinkerbell supports short-term task recovery via WALs but requires a robust, persistent, semantically searchable memory substrate capable of handling memory drift and versioned states.
+Tiffany supports short-term task recovery via WALs but requires a robust, persistent, semantically searchable memory substrate capable of handling memory drift and versioned states.
 
 ---
 
@@ -104,7 +104,7 @@ sequenceDiagram
 
 ### Context & Motivation
 
-In large-scale agentic runtimes, computational resources must be efficiently managed. Agents often have episodic active periods followed by dormancy. To enable efficient resource utilization, Tinkerbell FAR systems can enter a **sleep state**, allowing resource deallocation, and later be seamlessly **resurrected** with full memory integrity and context restored.
+In large-scale agentic runtimes, computational resources must be efficiently managed. Agents often have episodic active periods followed by dormancy. To enable efficient resource utilization, Tiffany FAR systems can enter a **sleep state**, allowing resource deallocation, and later be seamlessly **resurrected** with full memory integrity and context restored.
 
 This approach dramatically reduces infrastructure costs and enables agents to scale dynamically across distributed clusters or edge-computing environments.
 
@@ -195,7 +195,7 @@ In distributed multi-skilled environments, individual agents must leverage commo
 An agent tasked with complex codebase refactoring completes its work and becomes dormant. Later, a related refactoring project arises, requiring the resurrection of the agent to leverage its prior knowledge:
 
 1. The agent's semantic and episodic memories related to the original refactoring task are archived in S3.
-2. On the new task trigger, Tinkerbell’s orchestrator:
+2. On the new task trigger, Tiffany’s orchestrator:
 
     * Pulls the archived vector embeddings and Neo4j snapshots.
     * Restores memory state and procedural skills in a freshly instantiated Firecracker runtime environment.
@@ -278,11 +278,11 @@ sequenceDiagram
 
 ---
 
-**This comprehensive approach positions Tinkerbell not only as a powerful and robust autonomous runtime but as an innovative leader addressing critical and previously neglected aspects of autonomous agentic memory management and lifecycle handling.**
+**This comprehensive approach positions Tiffany not only as a powerful and robust autonomous runtime but as an innovative leader addressing critical and previously neglected aspects of autonomous agentic memory management and lifecycle handling.**
 
 
 ## Comparative Analysis
-| **Feature**                             | **LangChain** | **Claude** | **Gemini** | **Tinkerbell**                |
+| **Feature**                             | **LangChain** | **Claude** | **Gemini** | **Tiffany**                |
 |:----------------------------------------|:-------------:|:----------:|:----------:|:------------------------------|
 | Semantic Memory                        | ✔️            | ✔️         | ✔️         | ✔️ *(Enhanced)*                |
 | Episodic Memory                        | Limited       | ❌         | ❌         | ✔️ *(WAL-based)*               |
@@ -300,11 +300,11 @@ sequenceDiagram
 
 ## Related Documents
 - [ADR-0005: Virtual Canvas and GitOps Strategy](adr_0005_virtual_canvas_gitops.md)
-- [Tinkerbell System Architecture](../whitepapers/Tinkerbell%20System%20Architecture%20and%20Design%20Overview.md)
+- [Tiffany System Architecture](../whitepapers/Tiffany%20System%20Architecture%20and%20Design%20Overview.md)
 
 ---
 
 ## Adopted
-This ADR is accepted as of June 2025. Tinkerbell will persist task-aware memory using an advanced semantic graph and embedding database designed explicitly to handle evolving semantic states and temporal memory drift, supporting robust LLM-guided reasoning and introspection.
+This ADR is accepted as of June 2025. Tiffany will persist task-aware memory using an advanced semantic graph and embedding database designed explicitly to handle evolving semantic states and temporal memory drift, supporting robust LLM-guided reasoning and introspection.
 
 Maintainers: `@casibbald`, `@microscaler-team`

@@ -8,7 +8,7 @@ Proposed
 
 ## Context
 
-Tinkerbell FAR infrastructure is an advanced, community-focused autonomous agentic runtime system. Clear versioning, predictable release cycles, and transparent changelogs are essential for adoption, community trust, and long-term maintainability.
+Tiffany FAR infrastructure is an advanced, community-focused autonomous agentic runtime system. Clear versioning, predictable release cycles, and transparent changelogs are essential for adoption, community trust, and long-term maintainability.
 
 Common pitfalls without clear versioning include:
 
@@ -16,7 +16,7 @@ Common pitfalls without clear versioning include:
 * **Unpredictable release schedules**: Community frustration and operational difficulties.
 * **Poor changelog quality**: Hard to identify important updates and fixes.
 
-To address these issues, Tinkerbell requires explicit, community-friendly, and robust versioning policies, structured release cycles, and clear changelog protocols.
+To address these issues, Tiffany requires explicit, community-friendly, and robust versioning policies, structured release cycles, and clear changelog protocols.
 
 ---
 
@@ -95,7 +95,7 @@ Adopt [Keep a Changelog](https://keepachangelog.com/) format:
 
 ## [1.0.0] - 2025-01-01
 ### Added
-- Initial stable release of Tinkerbell FAR agents
+- Initial stable release of Tiffany FAR agents
 ### Changed
 - Updated agent lifecycle model (#987)
 
@@ -162,7 +162,7 @@ sequenceDiagram
 
 ## 🚀 Industry-Leading Capabilities
 
-Adopting this structured SemVer, clear release channel strategy, and detailed changelog protocol will position Tinkerbell FAR as a mature, transparent, community-driven project, setting a benchmark in autonomous agentic runtime infrastructure management.
+Adopting this structured SemVer, clear release channel strategy, and detailed changelog protocol will position Tiffany FAR as a mature, transparent, community-driven project, setting a benchmark in autonomous agentic runtime infrastructure management.
 
 ---
 
