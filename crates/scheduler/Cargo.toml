@@ -1,0 +1,21 @@
+[package]
+name = "scheduler"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+may = "0.3"
+tracing = "0.1"
+anyhow = "1.0"
+crossbeam = "0.8"
+mio = { version = "0.8", optional = true, features = ["os-poll", "os-ext"] }
+
+[dev-dependencies]
+traced-test = "0.1"
+insta = { version = "1.30", features = ["yaml"] }
+serial_test = { version = "2.0", features = ["file_locks"] }
+nix = { version = "0.27", default-features = false }
+
+[features]
+default = []
+async-io = ["mio"]

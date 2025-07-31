@@ -1,0 +1,9 @@
+[workspace]
+members = [
+  "crates/docsbookgen",
+  "crates/scheduler",
+  "crates/wal",
+  "crates/metrics",
+  "crates/daemon",
+]
+resolver = "2"

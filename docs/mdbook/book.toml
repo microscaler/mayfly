@@ -1,0 +1,12 @@
+[book]
+title = "Mayfly System Design"
+authors = ["Microscaler Team"]
+language = "en"
+multilingual = false
+src = "src"
+
+[output.html]
+default-theme = "light"
+additional-css = ["theme/custom.css"]
+
+[preprocessor.katex]
