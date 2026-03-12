@@ -1,19 +1,38 @@
-name: Build Docs
+# Build docbook and deploy to GitHub Pages at mayfly.microscaler.io
+#
+# Repo setup: Settings > Pages > Source: GitHub Actions.
+# Custom domain: Settings > Pages > Custom domain: mayfly.microscaler.io
+# DNS: Add CNAME record for mayfly.microscaler.io → <owner>.github.io (or use A records per GitHub docs).
+#
+name: Build and Deploy Docs
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
-  mdbook:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Cargo dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -21,7 +40,7 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install protobug compiler
+      - name: Install protobuf compiler
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
@@ -29,6 +48,25 @@ jobs:
       - name: Install mdBook
         run: cargo install mdbook
 
+      - name: Build docbook
+        run: cargo run -p docsbookgen
 
-      - name: Run docsbookgen
-        run: cargo run -p docsbookgen -- build ./docs/mdbook/
+      - name: Add CNAME for mayfly.microscaler.io
+        run: echo "mayfly.microscaler.io" > docsbook/CNAME
+
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docsbook/
+
+  deploy:
+    environment:
+      name: github-pages
+      url: https://mayfly.microscaler.io
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

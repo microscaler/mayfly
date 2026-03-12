@@ -7,3 +7,4 @@ src = "src"
 [output.html]
 default-theme = "light"
 additional-css = ["theme/custom.css"]
+additional-js = ["theme/mermaid.js"]
