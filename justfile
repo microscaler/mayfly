@@ -18,6 +18,10 @@ build-docsbookgen:
 docs:
     cargo doc --workspace --no-deps --all-features
 
+# Check workspace without building artifacts
+check:
+    cargo check --workspace
+
 # Clean workspace
 clean:
     cargo clean
@@ -31,14 +35,21 @@ serve-docs:
     mdbook serve ./docs/mdbook/ --open
 
 default:
-    @echo "Available commands: build, test, run-agent, run-cli"
+    @just --list
 
-run-agent:
-    cargo run -p daemon --bin tinkerbell
+# Run the Mayfly scheduler daemon
+run-daemon:
+    cargo run -p daemon --bin mayfly
 
-# Execute the CLI to check daemon status
-run-cli:
-    cargo run -p cli --bin tctl -- status
+alias run-agent := run-daemon
+
+# Test only the scheduler crate
+test-scheduler:
+    cargo test -p scheduler
+
+# Test only the daemon crate
+test-daemon:
+    cargo test -p daemon
 
 # Run nextest for faster test execution
 nextest-test:

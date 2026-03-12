@@ -65,12 +65,12 @@ fn main() {
         println!("⚠️  No docs/mdbook/ folder found — skipping mdbook build");
     }
 
-    // Step 5: Copy the custom CSS used by the index page
-    let style_src = Path::new("docsbook/style/tinkerbell.css");
+    // Step 5: Copy the custom CSS used by the index page (source: docs/style/)
+    let style_src = Path::new("docs/style/mayfly.css");
     let style_dest = docbook_out.join("style");
     if style_src.exists() {
         fs::create_dir_all(&style_dest).expect("Failed to create docsbook/style dir");
-        fs::copy(style_src, style_dest.join("tinkerbell.css")).expect("Failed to copy CSS");
+        fs::copy(style_src, style_dest.join("mayfly.css")).expect("Failed to copy CSS");
     }
 
     // Step 6: Generate a simple index.html linking to API and mdBook docs
@@ -78,11 +78,11 @@ fn main() {
 <html lang=\"en\">
   <head>
     <meta charset=\"utf-8\">
-    <title>Tiffany Documentation</title>
-    <link rel=\"stylesheet\" href=\"style/tinkerbell.css\">
+    <title>Mayfly Documentation</title>
+    <link rel=\"stylesheet\" href=\"style/mayfly.css\">
   </head>
   <body>
-    <h1>Tiffany Documentation</h1>
+    <h1>Mayfly Documentation</h1>
     <ul>
       <li><a href=\"api/index.html\">Rust API Docs</a></li>
       <li><a href=\"md/book/index.html\">mdBook Docs</a></li>

@@ -1,12 +1,20 @@
 use scheduler::{Scheduler, SystemCall, task::TaskContext};
-use serial_test::file_serial;
+use std::sync::{Arc, Barrier};
+use std::thread;
 use std::time::Duration;
 
+/// run() with no tasks must exit after a few idle ticks.
 #[test]
-#[file_serial]
+fn run_empty_exits() {
+    let mut sched = Scheduler::new();
+    let order = sched.run();
+    assert!(order.is_empty());
+}
+
+#[test]
 fn priority_order() {
     let mut sched = Scheduler::new();
-    // Spawn tasks then run scheduler on current thread
+    let barrier = Arc::new(Barrier::new(2));
     let _high = unsafe {
         sched.spawn_with_priority(5, |ctx: TaskContext| {
             ctx.syscall(SystemCall::Done);
@@ -18,7 +26,11 @@ fn priority_order() {
             ctx.syscall(SystemCall::Done);
         })
     };
-    let order = sched.run();
+    let order = thread::scope(|s| {
+        let handle = unsafe { sched.start(s, barrier.clone()) };
+        barrier.wait();
+        handle.join().unwrap()
+    });
     println!("order: {order:?}");
     assert_eq!(order.first().copied(), Some(1));
     assert_eq!(order.last().copied(), Some(2));
@@ -27,31 +39,32 @@ fn priority_order() {
 #[test]
 fn dag_dependencies() {
     let mut sched = Scheduler::new();
-    // Task A: no dependencies
+    let barrier = Arc::new(Barrier::new(2));
     let a = unsafe {
         sched.spawn_with_priority(5, |ctx: TaskContext| {
             ctx.syscall(SystemCall::Done);
         })
     };
-    // Task B: depends on A
     let b = unsafe {
         sched.spawn_with_deps(&[a], |ctx: TaskContext| {
             ctx.syscall(SystemCall::Done);
         })
     };
-    // Task C: depends on A
     let c = unsafe {
         sched.spawn_with_deps(&[a], |ctx: TaskContext| {
             ctx.syscall(SystemCall::Done);
         })
     };
-    // Task D: depends on B and C
     let d = unsafe {
         sched.spawn_with_deps(&[b, c], |ctx: TaskContext| {
             ctx.syscall(SystemCall::Done);
         })
     };
-    let order = sched.run();
+    let order = thread::scope(|s| {
+        let handle = unsafe { sched.start(s, barrier.clone()) };
+        barrier.wait();
+        handle.join().unwrap()
+    });
     println!("Task order: {order:?}");
     println!("A: {a}, B: {b}, C: {c}, D: {d}");
     // A must finish before B and C, and B and C before D
@@ -66,11 +79,14 @@ fn dag_dependencies() {
     assert!(pos_c < pos_d, "C should finish before D");
 }
 
+/// Scheduler must run in a dedicated thread so may coroutines (t1, t2, t3) can run.
+/// No #[file_serial] to avoid deadlock with scheduler thread.
 #[test]
 fn cooperative_cancellation_ordering() {
     use scheduler::task::TaskCompletionReason;
     let mut sched = Scheduler::new();
-    // Task 1: will be cancelled before running
+    let barrier = Arc::new(Barrier::new(2));
+    // Task 1: will be cancelled by t2 before or after running
     let t1 = unsafe {
         sched.spawn_with_priority(5, |ctx: TaskContext| {
             if ctx.is_cancelled() {
@@ -93,13 +109,15 @@ fn cooperative_cancellation_ordering() {
             ctx.syscall(SystemCall::Done);
         })
     };
-    let order = sched.run();
+    let order = thread::scope(|s| {
+        let handle = unsafe { sched.start(s, barrier.clone()) };
+        barrier.wait();
+        handle.join().unwrap()
+    });
     println!("Cancel test order: {order:?}");
-    // All tasks should appear in the order they are completed
     assert!(order.contains(&t1));
     assert!(order.contains(&t2));
     assert!(order.contains(&t3));
-    // t1 should be marked as skipped (if cancellation happened before running)
     let state_t1 = sched.task_state(t1);
     if let Some(scheduler::task::TaskState::Finished(reason)) = state_t1 {
         assert!(
@@ -113,6 +131,7 @@ fn cooperative_cancellation_ordering() {
 fn double_cancellation() {
     use scheduler::task::{TaskCompletionReason, TaskState};
     let mut sched = Scheduler::new();
+    let barrier = Arc::new(Barrier::new(2));
     let t1 = unsafe {
         sched.spawn_with_priority(5, |ctx: TaskContext| {
             if ctx.is_cancelled() {
@@ -122,10 +141,13 @@ fn double_cancellation() {
             ctx.syscall(SystemCall::Done);
         })
     };
-    // Cancel twice using the public API (single-threaded context)
     sched.cancel_task(t1);
     sched.cancel_task(t1);
-    let order = sched.run();
+    let order = thread::scope(|s| {
+        let handle = unsafe { sched.start(s, barrier.clone()) };
+        barrier.wait();
+        handle.join().unwrap()
+    });
     assert!(order.contains(&t1));
     let state = sched.task_state(t1);
     assert!(
@@ -135,13 +157,43 @@ fn double_cancellation() {
     );
 }
 
+/// Cancel before run: scheduler runs in dedicated thread; finalization_queue drains t1 so run() exits.
+/// (No #[file_serial] to avoid deadlock: scheduler thread must not contend for the same lock.)
+#[test]
+fn cancellation_before_run() {
+    use scheduler::task::{TaskCompletionReason, TaskState};
+    let mut sched = Scheduler::new();
+    let barrier = Arc::new(Barrier::new(2));
+    let t1 = unsafe {
+        sched.spawn_with_priority(5, |ctx: TaskContext| {
+            ctx.syscall(SystemCall::Done);
+        })
+    };
+    sched.cancel_task(t1);
+    thread::scope(|s| {
+        let handle = unsafe { sched.start(s, barrier.clone()) };
+        barrier.wait();
+        let order = handle.join().unwrap();
+        assert!(order.contains(&t1), "order = {:?}", order);
+    });
+    let state = sched.task_state(t1);
+    assert_eq!(
+        state,
+        Some(TaskState::Finished(TaskCompletionReason::WorkSkipped)),
+        "cancelled-before-run should be WorkSkipped: {:?}",
+        state
+    );
+}
+
+/// Cancel before run with a task that would Sleep: same as cancellation_before_run.
+/// (No #[file_serial] to avoid deadlock with scheduler thread.)
 #[test]
 fn cancellation_during_execution() {
     use scheduler::task::{TaskCompletionReason, TaskState};
     let mut sched = Scheduler::new();
+    let barrier = Arc::new(Barrier::new(2));
     let t1 = unsafe {
         sched.spawn_with_priority(5, |ctx: TaskContext| {
-            // Simulate work, check for cancellation
             if ctx.is_cancelled() {
                 ctx.syscall(SystemCall::Done);
                 return;
@@ -154,15 +206,19 @@ fn cancellation_during_execution() {
             ctx.syscall(SystemCall::Done);
         })
     };
-    // Cancel after scheduling using the public API (single-threaded context)
     sched.cancel_task(t1);
-    let order = sched.run();
-    assert!(order.contains(&t1));
+    thread::scope(|s| {
+        let handle = unsafe { sched.start(s, barrier.clone()) };
+        barrier.wait();
+        let order = handle.join().unwrap();
+        assert!(order.contains(&t1));
+    });
     let state = sched.task_state(t1);
     assert!(
         state == Some(TaskState::Finished(TaskCompletionReason::WorkSkipped))
             || state == Some(TaskState::Finished(TaskCompletionReason::WorkDone)),
-        "Task should be skipped or done"
+        "Task should be skipped or done: {:?}",
+        state
     );
 }
 
@@ -185,17 +241,27 @@ fn dependency_chain_with_cancellation() {
             ctx.syscall(SystemCall::Done);
         })
     };
-    // Cancel b before it runs using the public API (single-threaded context)
     sched.cancel_task(b);
-    let order = sched.run();
+    let barrier = Arc::new(Barrier::new(2));
+    let order = thread::scope(|s| {
+        let handle = unsafe { sched.start(s, barrier.clone()) };
+        barrier.wait();
+        handle.join().unwrap()
+    });
     assert!(order.contains(&a));
     assert!(order.contains(&b));
-    // c should not run because its dependency was cancelled
-    assert!(!order.contains(&c), "c should not run if b is cancelled");
+    // c is finalized as cancelled (dependent of b) and appears in order with WorkSkipped
+    assert!(order.contains(&c), "c should be finalized when b is cancelled");
     let state_b = sched.task_state(b);
     assert_eq!(
         state_b,
         Some(TaskState::Finished(TaskCompletionReason::WorkSkipped))
+    );
+    let state_c = sched.task_state(c);
+    assert_eq!(
+        state_c,
+        Some(TaskState::Finished(TaskCompletionReason::WorkSkipped)),
+        "c should be skipped (dependency b was cancelled)"
     );
 }
 
@@ -203,13 +269,18 @@ fn dependency_chain_with_cancellation() {
 fn panic_task_is_finalized() {
     use scheduler::task::{TaskCompletionReason, TaskState};
     let mut sched = Scheduler::new();
+    let barrier = Arc::new(Barrier::new(2));
     let t1 = unsafe {
         sched.spawn_with_priority(5, |ctx: TaskContext| {
             ctx.syscall(SystemCall::Done);
             panic!("intentional panic");
         })
     };
-    let order = sched.run();
+    let order = thread::scope(|s| {
+        let handle = unsafe { sched.start(s, barrier.clone()) };
+        barrier.wait();
+        handle.join().unwrap()
+    });
     assert!(order.contains(&t1));
     let state = sched.task_state(t1);
     assert_eq!(
@@ -238,15 +309,18 @@ fn scheduler_shutdown_finalizes_pending_tasks() {
 fn timeout_task_completion_reason() {
     use scheduler::task::{TaskCompletionReason, TaskState};
     let mut sched = Scheduler::new();
+    let barrier = Arc::new(Barrier::new(2));
     let t1 = unsafe {
         sched.spawn_with_priority(5, |ctx: TaskContext| {
             ctx.syscall(SystemCall::Sleep(Duration::from_millis(10)));
             ctx.syscall(SystemCall::Done);
         })
     };
-    // Simulate a timeout by running the scheduler for less time than needed
-    // (This is a placeholder; actual timeout logic would require scheduler support)
-    let order = sched.run();
+    let order = thread::scope(|s| {
+        let handle = unsafe { sched.start(s, barrier.clone()) };
+        barrier.wait();
+        handle.join().unwrap()
+    });
     assert!(order.contains(&t1));
     // For now, just check that the task is marked as done or skipped
     let state = sched.task_state(t1);
@@ -257,17 +331,16 @@ fn timeout_task_completion_reason() {
     );
 }
 
-/// Stress test: Large parallel fan-out and fan-in DAG
+/// Stress test: Large parallel fan-out and fan-in DAG. Scheduler in dedicated thread.
 #[test]
 fn dag_stress_fanout_fanin() {
     let mut sched = Scheduler::new();
-    // Root node
+    let barrier = Arc::new(Barrier::new(2));
     let root = unsafe {
         sched.spawn_with_priority(1, |ctx: TaskContext| {
             ctx.syscall(SystemCall::Done);
         })
     };
-    // Fan out: 50 parallel tasks depending on root
     let mut mids = Vec::new();
     for _ in 0..50 {
         let mid = unsafe {
@@ -277,13 +350,16 @@ fn dag_stress_fanout_fanin() {
         };
         mids.push(mid);
     }
-    // Fan in: 1 task depending on all mids
     let leaf = unsafe {
         sched.spawn_with_deps(&mids, |ctx: TaskContext| {
             ctx.syscall(SystemCall::Done);
         })
     };
-    let order = sched.run();
+    let order = thread::scope(|s| {
+        let handle = unsafe { sched.start(s, barrier.clone()) };
+        barrier.wait();
+        handle.join().unwrap()
+    });
     let pos_root = order.iter().position(|&tid| tid == root).unwrap();
     let pos_leaf = order.iter().position(|&tid| tid == leaf).unwrap();
     // All mids must finish after root and before leaf
@@ -294,11 +370,11 @@ fn dag_stress_fanout_fanin() {
     }
 }
 
-/// Complex DAG: Multiple levels and cross dependencies
+/// Complex DAG: Multiple levels and cross dependencies. Scheduler in dedicated thread.
 #[test]
 fn dag_complex_multilevel() {
     let mut sched = Scheduler::new();
-    // Level 0
+    let barrier = Arc::new(Barrier::new(2));
     let a = unsafe {
         sched.spawn_with_priority(1, |ctx: TaskContext| {
             ctx.syscall(SystemCall::Done);
@@ -309,7 +385,6 @@ fn dag_complex_multilevel() {
             ctx.syscall(SystemCall::Done);
         })
     };
-    // Level 1
     let c = unsafe {
         sched.spawn_with_deps(&[a], |ctx: TaskContext| {
             ctx.syscall(SystemCall::Done);
@@ -325,7 +400,6 @@ fn dag_complex_multilevel() {
             ctx.syscall(SystemCall::Done);
         })
     };
-    // Level 2
     let f = unsafe {
         sched.spawn_with_deps(&[c, d], |ctx: TaskContext| {
             ctx.syscall(SystemCall::Done);
@@ -336,13 +410,16 @@ fn dag_complex_multilevel() {
             ctx.syscall(SystemCall::Done);
         })
     };
-    // Level 3
     let h = unsafe {
         sched.spawn_with_deps(&[f, g], |ctx: TaskContext| {
             ctx.syscall(SystemCall::Done);
         })
     };
-    let order = sched.run();
+    let order = thread::scope(|s| {
+        let handle = unsafe { sched.start(s, barrier.clone()) };
+        barrier.wait();
+        handle.join().unwrap()
+    });
     let pos = |tid| order.iter().position(|&t| t == tid).unwrap();
     // Check all dependencies
     assert!(pos(a) < pos(c), "A before C");
@@ -357,12 +434,12 @@ fn dag_complex_multilevel() {
     assert!(pos(g) < pos(h), "G before H");
 }
 
-/// Stress test: Wide and deep DAG
+/// Stress test: Wide and deep DAG. Scheduler in dedicated thread.
 #[test]
 fn dag_stress_wide_deep() {
     let mut sched = Scheduler::new();
+    let barrier = Arc::new(Barrier::new(2));
     let mut prev_level = Vec::new();
-    // Start with 10 root tasks
     for _ in 0..10 {
         let tid = unsafe {
             sched.spawn_with_priority(1, |ctx: TaskContext| {
@@ -371,7 +448,6 @@ fn dag_stress_wide_deep() {
         };
         prev_level.push(tid);
     }
-    // Build 10 levels, each with 10 tasks, each depending on all previous level
     for _ in 0..10 {
         let mut this_level = Vec::new();
         for _ in 0..10 {
@@ -384,13 +460,16 @@ fn dag_stress_wide_deep() {
         }
         prev_level = this_level;
     }
-    // Final task depends on all last level
     let final_task = unsafe {
         sched.spawn_with_deps(&prev_level, |ctx: TaskContext| {
             ctx.syscall(SystemCall::Done);
         })
     };
-    let order = sched.run();
+    let order = thread::scope(|s| {
+        let handle = unsafe { sched.start(s, barrier.clone()) };
+        barrier.wait();
+        handle.join().unwrap()
+    });
     let pos_final = order.iter().position(|&tid| tid == final_task).unwrap();
     // All previous tasks must finish before final_task
     for &tid in &prev_level {

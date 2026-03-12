@@ -23,3 +23,31 @@ impl Config {
         Ok(cfg)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn load_empty_toml_sets_config_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, "").unwrap();
+        let cfg = Config::load(&path).unwrap();
+        assert_eq!(cfg.config_path, path.to_string_lossy());
+    }
+
+    #[test]
+    fn load_invalid_toml_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, "invalid = [").unwrap();
+        assert!(Config::load(&path).is_err());
+    }
+
+    #[test]
+    fn load_missing_file_fails() {
+        let path = std::path::Path::new("/nonexistent/config.toml");
+        assert!(Config::load(path).is_err());
+    }
+}

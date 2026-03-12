@@ -322,10 +322,40 @@ impl Scheduler {
         loop {
             let mut did_work = false;
 
+            // Process finalization queue first so cancelled tasks are removed before we pop from ready
+            while let Some(tid) = self.finalization_queue.pop() {
+                if let Some(task) = self.tasks.get(&tid) {
+                    if task.cancelled {
+                        let dependents: Vec<TaskId> =
+                            self.dependents.get(&tid).cloned().unwrap_or_default().into_iter().collect();
+                        self.states.insert(
+                            tid,
+                            TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
+                        );
+                        done_order.push(tid);
+                        self.tasks.remove(&tid);
+                        self.dependents.remove(&tid);
+                        self.dependencies.remove(&tid);
+                        self.unresolved_deps.remove(&tid);
+                        for dep_tid in dependents {
+                            if let Some(t) = self.tasks.get_mut(&dep_tid) {
+                                t.cancelled = true;
+                                if !self.finalization_queue.iter().any(|&id| id == dep_tid) {
+                                    self.finalization_queue.push(dep_tid);
+                                }
+                            }
+                        }
+                        did_work = true;
+                    }
+                }
+            }
+
             while let Some(&Reverse((wake_at, tid))) = self.sleepers.peek() {
                 if wake_at <= self.clock.now() {
                     self.sleepers.pop();
-                    self.push_ready(tid);
+                    if self.tasks.contains_key(&tid) {
+                        self.push_ready(tid);
+                    }
                     did_work = true;
                 } else {
                     break;
@@ -408,20 +438,21 @@ impl Scheduler {
                 continue;
             }
 
-            // Only schedule if state is Ready
-            if let Some(TaskState::Ready) = self.states.get(&tid) {
-                // Finalization step for cancelled tasks: if cancelled, immediately finalize
-                if let Some(task) = self.tasks.get(&tid)
-                    && task.cancelled
-                {
-                    self.states.insert(
-                        tid,
-                        TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
-                    );
-                    done_order.push(tid);
-                    self.tasks.remove(&tid);
-                    continue;
-                }
+            // Finalize cancelled tasks immediately when popped (state may be Ready or Running from spawn)
+            if let Some(task) = self.tasks.get(&tid) && task.cancelled {
+                self.states.insert(
+                    tid,
+                    TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
+                );
+                done_order.push(tid);
+                self.tasks.remove(&tid);
+                continue;
+            }
+
+            // Only schedule if state is Ready or Running (Running from spawn_with_priority means runnable)
+            if self.states.get(&tid) == Some(&TaskState::Ready)
+                || self.states.get(&tid) == Some(&TaskState::Running)
+            {
                 self.states.insert(tid, TaskState::Running);
             } else {
                 continue;
@@ -445,12 +476,25 @@ impl Scheduler {
             while let Some(tid) = self.finalization_queue.pop() {
                 if let Some(task) = self.tasks.get(&tid) {
                     if task.cancelled {
+                        let dependents: Vec<TaskId> = self.dependents.get(&tid).cloned().unwrap_or_default().into_iter().collect();
                         self.states.insert(
                             tid,
                             TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
                         );
                         done_order.push(tid);
                         self.tasks.remove(&tid);
+                        self.dependents.remove(&tid);
+                        self.dependencies.remove(&tid);
+                        self.unresolved_deps.remove(&tid);
+                        // Propagate cancellation to dependents so they are finalized and run() can exit
+                        for dep_tid in dependents {
+                            if let Some(t) = self.tasks.get_mut(&dep_tid) {
+                                t.cancelled = true;
+                                if !self.finalization_queue.iter().any(|&id| id == dep_tid) {
+                                    self.finalization_queue.push(dep_tid);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -466,6 +510,33 @@ impl Scheduler {
             || !self.finalization_queue.is_empty()
             || !self.ready.is_empty()
         {
+            // Process finalization queue first so cancelled tasks are removed
+            while let Some(tid) = self.finalization_queue.pop() {
+                if let Some(task) = self.tasks.get(&tid) {
+                    if task.cancelled {
+                        let dependents: Vec<TaskId> =
+                            self.dependents.get(&tid).cloned().unwrap_or_default().into_iter().collect();
+                        self.states.insert(
+                            tid,
+                            TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
+                        );
+                        done_order.push(tid);
+                        self.tasks.remove(&tid);
+                        self.dependents.remove(&tid);
+                        self.dependencies.remove(&tid);
+                        self.unresolved_deps.remove(&tid);
+                        for dep_tid in dependents {
+                            if let Some(t) = self.tasks.get_mut(&dep_tid) {
+                                t.cancelled = true;
+                                if !self.finalization_queue.iter().any(|&id| id == dep_tid) {
+                                    self.finalization_queue.push(dep_tid);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             let timeout = if self.ready.is_empty() {
                 if let Some(wake_at) = self.next_wake_instant() {
                     let now = self.clock.now();
@@ -530,20 +601,21 @@ impl Scheduler {
                 continue;
             }
 
-            // Only schedule if state is Ready
-            if let Some(TaskState::Ready) = self.states.get(&tid) {
-                // Finalization step for cancelled tasks: if cancelled, immediately finalize
-                if let Some(task) = self.tasks.get(&tid)
-                    && task.cancelled
-                {
-                    self.states.insert(
-                        tid,
-                        TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
-                    );
-                    done_order.push(tid);
-                    self.tasks.remove(&tid);
-                    continue;
-                }
+            // Finalize cancelled tasks immediately when popped (state may be Ready or Running from spawn)
+            if let Some(task) = self.tasks.get(&tid) && task.cancelled {
+                self.states.insert(
+                    tid,
+                    TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
+                );
+                done_order.push(tid);
+                self.tasks.remove(&tid);
+                continue;
+            }
+
+            // Only schedule if state is Ready or Running (Running from spawn_with_priority means runnable)
+            if self.states.get(&tid) == Some(&TaskState::Ready)
+                || self.states.get(&tid) == Some(&TaskState::Running)
+            {
                 self.states.insert(tid, TaskState::Running);
             } else {
                 continue;
@@ -570,12 +642,24 @@ impl Scheduler {
             if let Some(task) = self.tasks.get(&tid)
                 && task.cancelled
             {
+                let dependents: Vec<TaskId> = self.dependents.get(&tid).cloned().unwrap_or_default().into_iter().collect();
                 self.states.insert(
                     tid,
                     TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
                 );
                 done_order.push(tid);
                 self.tasks.remove(&tid);
+                self.dependents.remove(&tid);
+                self.dependencies.remove(&tid);
+                self.unresolved_deps.remove(&tid);
+                for dep_tid in dependents {
+                    if let Some(t) = self.tasks.get_mut(&dep_tid) {
+                        t.cancelled = true;
+                        if !self.finalization_queue.iter().any(|&id| id == dep_tid) {
+                            self.finalization_queue.push(dep_tid);
+                        }
+                    }
+                }
             }
         }
         done_order
@@ -702,7 +786,7 @@ impl Scheduler {
                     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                         task.handle.join()
                     }));
-                    match res {
+                    Some(match res {
                         Ok(Ok(_)) => {
                             if task.cancelled {
                                 TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped)
@@ -714,12 +798,20 @@ impl Scheduler {
                             pal::emit(TaskEvent::Failed(tid));
                             TaskState::Finished(crate::task::TaskCompletionReason::Failed)
                         }
-                    }
+                    })
                 } else {
-                    TaskState::Finished(crate::task::TaskCompletionReason::WorkDone)
+                    // Task already removed (e.g. by finalization when cancelled); do not overwrite state
+                    None
                 };
-                self.states.insert(tid, state);
-                let (waiters, _) = self.wait_map.complete(tid, state);
+                if let Some(s) = state {
+                    self.states.insert(tid, s);
+                }
+                let complete_state = self
+                    .states
+                    .get(&tid)
+                    .cloned()
+                    .unwrap_or(TaskState::Finished(crate::task::TaskCompletionReason::WorkDone));
+                let (waiters, _) = self.wait_map.complete(tid, complete_state);
                 for waiter in waiters {
                     self.push_ready(waiter);
                 }
@@ -745,14 +837,10 @@ impl Scheduler {
             SystemCall::Cancel(target) => {
                 if let Some(task) = self.tasks.get_mut(&target) {
                     task.cancelled = true;
-                    // If the task is not running, ensure it is pushed to the ready queue or finalization queue for finalization
-                    if let Some(TaskState::PendingDependencies) | Some(TaskState::Ready) =
-                        self.states.get(&target)
-                    {
-                        // Only push if not already in the ready queue
-                        if !self.ready.contains(target) {
-                            self.finalization_queue.push(target);
-                        }
+                    // Schedule for finalization so run() will process it (at start of loop or when popped).
+                    // Push always so that tasks with state Running (e.g. from spawn_with_priority) are also finalized.
+                    if !self.finalization_queue.iter().any(|&id| id == target) {
+                        self.finalization_queue.push(target);
                     }
                 }
             }

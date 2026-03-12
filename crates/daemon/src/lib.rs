@@ -11,7 +11,7 @@ pub mod ipc;
 mod pal;
 mod signal;
 
-use crossbeam::channel::RecvTimeoutError;
+use crossbeam::channel::{RecvTimeoutError, Receiver};
 use scheduler::{Scheduler, SystemCall, TaskContext};
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -36,6 +36,7 @@ pub fn looptask_wal_flush(ctx: TaskContext) {
     ctx.syscall(SystemCall::Sleep(Duration::from_millis(10)));
     pal_emit(DaemonEvent::WalFlushFinish);
     tracing::info!("wal flush task finished");
+    ctx.syscall(SystemCall::Done);
 }
 
 /// Loop task responsible for pushing runtime metrics.
@@ -50,6 +51,7 @@ pub fn looptask_metrics(ctx: TaskContext) {
     ctx.syscall(SystemCall::Sleep(Duration::from_millis(10)));
     pal_emit(DaemonEvent::MetricsFinish);
     tracing::info!("metrics task finished");
+    ctx.syscall(SystemCall::Done);
 }
 
 /// Initialize the daemon and return a running instance.
@@ -64,15 +66,17 @@ pub fn run(cfg: Config, dump_state: bool) -> anyhow::Result<()> {
     init(cfg)?.run(dump_state)
 }
 
-/// Drive the scheduler until a shutdown signal is received.
+/// Drive the scheduler until a shutdown is requested via the given receiver.
 ///
-/// This loops over \[`Scheduler::run`\] to process any queued tasks and waits for
-/// a termination notification from \[`signal::shutdown_channel`\]. When the
-/// scheduler becomes idle it blocks on the receiver for a short interval so
-/// that the loop does not busy spin.
-#[instrument(skip(sched))]
-fn run_blocking(sched: &mut Scheduler, dump: bool) -> anyhow::Result<()> {
-    let shutdown = shutdown_channel()?;
+/// Loops over `Scheduler::run`, then checks the shutdown receiver so the loop
+/// does not busy spin. Used both for signal-based shutdown (production) and
+/// injectable shutdown (tests).
+#[instrument(skip(sched, shutdown))]
+fn run_blocking(
+    sched: &mut Scheduler,
+    shutdown: &Receiver<()>,
+    dump: bool,
+) -> anyhow::Result<()> {
     loop {
         sched.run();
         if shutdown.try_recv().is_ok() {
@@ -100,9 +104,23 @@ pub struct Daemon {
 }
 
 impl Daemon {
-    /// Run the daemon until a termination signal is delivered.
+    /// Run the daemon until a termination signal is delivered (SIGINT/SIGTERM).
     #[instrument(skip(self))]
     pub fn run(self, dump_state: bool) -> anyhow::Result<()> {
+        let shutdown = shutdown_channel()?;
+        self.run_with_shutdown(shutdown, dump_state)
+    }
+
+    /// Run the daemon until a message is received on `shutdown`.
+    ///
+    /// Used for tests and programmatic shutdown: the caller controls when the
+    /// daemon stops by sending on the channel (or dropping the sender).
+    #[instrument(skip(self, shutdown))]
+    pub fn run_with_shutdown(
+        self,
+        shutdown: Receiver<()>,
+        dump_state: bool,
+    ) -> anyhow::Result<()> {
         tracing::info!("daemon running");
         // Watch for config changes (stub).
         let _watcher = signal::start_watcher(&self.cfg.config_path).ok();
@@ -122,7 +140,7 @@ impl Daemon {
             sched.spawn_system(looptask_wal_flush);
             sched.spawn_system(looptask_metrics);
         }
-        run_blocking(&mut sched, dump_state)?;
+        run_blocking(&mut sched, &shutdown, dump_state)?;
 
         http.shutdown();
 

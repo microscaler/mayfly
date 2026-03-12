@@ -1,6 +1,6 @@
 # Tiffany Daemon
 
-The `tinkerbell` binary — built from this crate — is the long-running process that powers a Tiffany agent inside a container or microVM.
+The `mayfly` binary — built from this crate — is the long-running scheduler daemon that can power a Tiffany (or other) agent runtime inside a container or microVM.
 
 It is responsible for:
 
@@ -79,7 +79,7 @@ cargo build -p daemon --features ipc,grpc
 ```txt
 crates/daemon/
 ├── bin/
-│   └── tinkerbell.rs         # Binary entrypoint
+│   └── mayfly.rs             # Binary entrypoint
 ├── src/
 │   ├── lib.rs                # Init and shutdown interfaces
 │   ├── config.rs             # Config loader (TOML, JSON, etc.)
@@ -130,7 +130,7 @@ The daemon exposes a small HTTP server for health checks and Prometheus metrics 
 
 ## 🚀 Goals
 
-The `tinkerbell` daemon is designed to be:
+The `mayfly` daemon is designed to be:
 
 * Deterministic
 * Fast-starting

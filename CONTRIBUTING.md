@@ -1,7 +1,7 @@
 
-# 🤝 Contributing to Tiffany
+# 🤝 Contributing to Mayfly
 
-Welcome! We're excited you're interested in contributing to **Tiffany**, an autonomous agentic runtime built in Rust.
+Welcome! We're excited you're interested in contributing to **Mayfly**, the scheduler and execution kernel for agentic runtimes, built in Rust.
 
 This document outlines our contribution philosophy, coding standards, and the processes we use to maintain project quality — especially our emphasis on **Test-Driven Development**, **comprehensive documentation**, and **system-level reproducibility**.
 
@@ -112,7 +112,7 @@ Then mark the PR title with `BREAKING:` and ping a maintainer for review.
 ## 🧙 Maintainers & Decision Process
 
 * This project is maintained by [Microscaler](https://github.com/microscaler)
-* Major architecture changes are discussed via [GitHub Discussions](https://github.com/microscaler/tinkerbell/discussions)
+* Major architecture changes are discussed via [GitHub Discussions](https://github.com/microscaler/mayfly/discussions)
 * All code should ship behind tests and with updated documentation
 
 ---

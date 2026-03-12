@@ -2,9 +2,9 @@ use clap::Parser;
 use daemon::config::Config;
 use tracing_subscriber::{EnvFilter, fmt};
 
-/// Command line arguments for the `tinkerbell` daemon.
+/// Command line arguments for the `mayfly` daemon.
 #[derive(Parser, Debug)]
-#[command(name = "tinkerbell", about = "Run the Tiffany daemon")]
+#[command(name = "mayfly", about = "Run the Mayfly scheduler daemon")]
 struct Cli {
     /// Path to the configuration file.
     #[arg(value_name = "PATH", default_value = "config.toml")]
@@ -27,10 +27,10 @@ struct Cli {
     dump_state: bool,
 }
 
-/// Main entry point for the `tinkerbell` daemon binary.
+/// Main entry point for the `mayfly` daemon binary.
 ///
 /// Parses command line arguments, configures logging, loads the
-/// configuration from disk, and delegates execution to \[`daemon::run`\].
+/// configuration from disk, and delegates execution to [`daemon::run`].
 #[tracing::instrument]
 fn main() -> anyhow::Result<()> {
     // Parse CLI flags

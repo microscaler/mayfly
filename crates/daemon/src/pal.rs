@@ -38,3 +38,20 @@ pub fn emit(event: DaemonEvent) {
 pub fn take_events() -> Vec<DaemonEvent> {
     EVENTS.lock().unwrap().drain(..).collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn emit_and_take_events() {
+        let _ = take_events(); // clear any prior state
+        emit(DaemonEvent::ShutdownBegin);
+        emit(DaemonEvent::ShutdownComplete);
+        let events = take_events();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0], DaemonEvent::ShutdownBegin);
+        assert_eq!(events[1], DaemonEvent::ShutdownComplete);
+        assert!(take_events().is_empty());
+    }
+}
