@@ -1,0 +1,11 @@
+/* Mayfly documentation theme */
+:root {
+  --mayfly-fg: #1a1a1a;
+  --mayfly-bg: #fafafa;
+}
+body {
+  font-family: system-ui, sans-serif;
+  color: var(--mayfly-fg);
+  background: var(--mayfly-bg);
+  line-height: 1.5;
+}

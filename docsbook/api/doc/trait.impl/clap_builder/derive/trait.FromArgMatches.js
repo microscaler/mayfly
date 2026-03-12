@@ -1,9 +1,9 @@
 (function() {
-    var implementors = Object.fromEntries([["tinkerbell",[["impl FromArgMatches for <a class=\"struct\" href=\"tinkerbell/struct.Cli.html\" title=\"struct tinkerbell::Cli\">Cli</a>"]]]]);
+    var implementors = Object.fromEntries([["mayfly",[["impl FromArgMatches for <a class=\"struct\" href=\"mayfly/struct.Cli.html\" title=\"struct mayfly::Cli\">Cli</a>"]]]]);
     if (window.register_implementors) {
         window.register_implementors(implementors);
     } else {
         window.pending_implementors = implementors;
     }
 })()
-//{"start":57,"fragment_lengths":[141]}
+//{"start":57,"fragment_lengths":[129]}

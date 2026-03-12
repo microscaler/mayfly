@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DaemonEvent"],"fn":["init","looptask_metrics","looptask_wal_flush","pal_emit","run","take_events"],"mod":["config"],"struct":["Daemon"]};
+window.SIDEBAR_ITEMS = {"enum":["DaemonEvent"],"fn":["init","looptask_metrics","looptask_wal_flush","pal_emit","run","take_events"],"mod":["config","http","signal"],"struct":["Daemon"]};

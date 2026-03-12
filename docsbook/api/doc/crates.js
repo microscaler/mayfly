@@ -1,2 +1,2 @@
-window.ALL_CRATES = ["daemon","docsbookgen","metrics","scheduler","tinkerbell","wal"];
-//{"start":21,"fragment_lengths":[8,14,10,12,13,6]}
+window.ALL_CRATES = ["daemon","docsbookgen","mayfly","metrics","scheduler","wal"];
+//{"start":21,"fragment_lengths":[8,14,9,10,12,6]}

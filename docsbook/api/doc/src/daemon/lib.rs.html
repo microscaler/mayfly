@@ -5,13 +5,13 @@
 <a href=#5 id=5 data-nosnippet>5</a><span class="kw">pub mod </span>config;
 <a href=#6 id=6 data-nosnippet>6</a><span class="attr">#[cfg(feature = <span class="string">"grpc"</span>)]
 <a href=#7 id=7 data-nosnippet>7</a></span><span class="kw">pub mod </span>grpc;
-<a href=#8 id=8 data-nosnippet>8</a><span class="kw">mod </span>http;
+<a href=#8 id=8 data-nosnippet>8</a><span class="kw">pub mod </span>http;
 <a href=#9 id=9 data-nosnippet>9</a><span class="attr">#[cfg(feature = <span class="string">"ipc"</span>)]
 <a href=#10 id=10 data-nosnippet>10</a></span><span class="kw">pub mod </span>ipc;
 <a href=#11 id=11 data-nosnippet>11</a><span class="kw">mod </span>pal;
-<a href=#12 id=12 data-nosnippet>12</a><span class="kw">mod </span>signal;
+<a href=#12 id=12 data-nosnippet>12</a><span class="kw">pub mod </span>signal;
 <a href=#13 id=13 data-nosnippet>13</a>
-<a href=#14 id=14 data-nosnippet>14</a><span class="kw">use </span>crossbeam::channel::RecvTimeoutError;
+<a href=#14 id=14 data-nosnippet>14</a><span class="kw">use </span>crossbeam::channel::{Receiver, RecvTimeoutError};
 <a href=#15 id=15 data-nosnippet>15</a><span class="kw">use </span>scheduler::{Scheduler, SystemCall, TaskContext};
 <a href=#16 id=16 data-nosnippet>16</a><span class="kw">use </span>std::net::SocketAddr;
 <a href=#17 id=17 data-nosnippet>17</a><span class="kw">use </span>std::time::Duration;
@@ -36,43 +36,43 @@
 <a href=#36 id=36 data-nosnippet>36</a>    ctx.syscall(SystemCall::Sleep(Duration::from_millis(<span class="number">10</span>)));
 <a href=#37 id=37 data-nosnippet>37</a>    pal_emit(DaemonEvent::WalFlushFinish);
 <a href=#38 id=38 data-nosnippet>38</a>    <span class="macro">tracing::info!</span>(<span class="string">"wal flush task finished"</span>);
-<a href=#39 id=39 data-nosnippet>39</a>}
-<a href=#40 id=40 data-nosnippet>40</a>
-<a href=#41 id=41 data-nosnippet>41</a><span class="doccomment">/// Loop task responsible for pushing runtime metrics.
-<a href=#42 id=42 data-nosnippet>42</a>///
-<a href=#43 id=43 data-nosnippet>43</a>/// Similar to \[`looptask_wal_flush`\], this task emits PAL events so tests can
-<a href=#44 id=44 data-nosnippet>44</a>/// verify that it started. Real implementations would collect and export
-<a href=#45 id=45 data-nosnippet>45</a>/// metrics to a monitoring system.
-<a href=#46 id=46 data-nosnippet>46</a></span><span class="attr">#[instrument(skip(ctx))]
-<a href=#47 id=47 data-nosnippet>47</a></span><span class="kw">pub fn </span>looptask_metrics(ctx: TaskContext) {
-<a href=#48 id=48 data-nosnippet>48</a>    pal_emit(DaemonEvent::MetricsStart);
-<a href=#49 id=49 data-nosnippet>49</a>    <span class="macro">tracing::info!</span>(<span class="string">"metrics task started"</span>);
-<a href=#50 id=50 data-nosnippet>50</a>    ctx.syscall(SystemCall::Sleep(Duration::from_millis(<span class="number">10</span>)));
-<a href=#51 id=51 data-nosnippet>51</a>    pal_emit(DaemonEvent::MetricsFinish);
-<a href=#52 id=52 data-nosnippet>52</a>    <span class="macro">tracing::info!</span>(<span class="string">"metrics task finished"</span>);
-<a href=#53 id=53 data-nosnippet>53</a>}
-<a href=#54 id=54 data-nosnippet>54</a>
-<a href=#55 id=55 data-nosnippet>55</a><span class="doccomment">/// Initialize the daemon and return a running instance.
-<a href=#56 id=56 data-nosnippet>56</a></span><span class="attr">#[instrument(skip(cfg))]
-<a href=#57 id=57 data-nosnippet>57</a></span><span class="kw">pub fn </span>init(cfg: Config) -&gt; anyhow::Result&lt;Daemon&gt; {
-<a href=#58 id=58 data-nosnippet>58</a>    <span class="macro">tracing::info!</span>(<span class="string">"initializing daemon"</span>);
-<a href=#59 id=59 data-nosnippet>59</a>    <span class="prelude-val">Ok</span>(Daemon { cfg })
-<a href=#60 id=60 data-nosnippet>60</a>}
-<a href=#61 id=61 data-nosnippet>61</a>
-<a href=#62 id=62 data-nosnippet>62</a><span class="doccomment">/// Convenience wrapper to initialize and immediately run the daemon.
-<a href=#63 id=63 data-nosnippet>63</a></span><span class="kw">pub fn </span>run(cfg: Config, dump_state: bool) -&gt; anyhow::Result&lt;()&gt; {
-<a href=#64 id=64 data-nosnippet>64</a>    init(cfg)<span class="question-mark">?</span>.run(dump_state)
-<a href=#65 id=65 data-nosnippet>65</a>}
-<a href=#66 id=66 data-nosnippet>66</a>
-<a href=#67 id=67 data-nosnippet>67</a><span class="doccomment">/// Drive the scheduler until a shutdown signal is received.
-<a href=#68 id=68 data-nosnippet>68</a>///
-<a href=#69 id=69 data-nosnippet>69</a>/// This loops over \[`Scheduler::run`\] to process any queued tasks and waits for
-<a href=#70 id=70 data-nosnippet>70</a>/// a termination notification from \[`signal::shutdown_channel`\]. When the
-<a href=#71 id=71 data-nosnippet>71</a>/// scheduler becomes idle it blocks on the receiver for a short interval so
-<a href=#72 id=72 data-nosnippet>72</a>/// that the loop does not busy spin.
-<a href=#73 id=73 data-nosnippet>73</a></span><span class="attr">#[instrument(skip(sched))]
-<a href=#74 id=74 data-nosnippet>74</a></span><span class="kw">fn </span>run_blocking(sched: <span class="kw-2">&amp;mut </span>Scheduler, dump: bool) -&gt; anyhow::Result&lt;()&gt; {
-<a href=#75 id=75 data-nosnippet>75</a>    <span class="kw">let </span>shutdown = shutdown_channel()<span class="question-mark">?</span>;
+<a href=#39 id=39 data-nosnippet>39</a>    ctx.syscall(SystemCall::Done);
+<a href=#40 id=40 data-nosnippet>40</a>}
+<a href=#41 id=41 data-nosnippet>41</a>
+<a href=#42 id=42 data-nosnippet>42</a><span class="doccomment">/// Loop task responsible for pushing runtime metrics.
+<a href=#43 id=43 data-nosnippet>43</a>///
+<a href=#44 id=44 data-nosnippet>44</a>/// Similar to \[`looptask_wal_flush`\], this task emits PAL events so tests can
+<a href=#45 id=45 data-nosnippet>45</a>/// verify that it started. Real implementations would collect and export
+<a href=#46 id=46 data-nosnippet>46</a>/// metrics to a monitoring system.
+<a href=#47 id=47 data-nosnippet>47</a></span><span class="attr">#[instrument(skip(ctx))]
+<a href=#48 id=48 data-nosnippet>48</a></span><span class="kw">pub fn </span>looptask_metrics(ctx: TaskContext) {
+<a href=#49 id=49 data-nosnippet>49</a>    pal_emit(DaemonEvent::MetricsStart);
+<a href=#50 id=50 data-nosnippet>50</a>    <span class="macro">tracing::info!</span>(<span class="string">"metrics task started"</span>);
+<a href=#51 id=51 data-nosnippet>51</a>    ctx.syscall(SystemCall::Sleep(Duration::from_millis(<span class="number">10</span>)));
+<a href=#52 id=52 data-nosnippet>52</a>    pal_emit(DaemonEvent::MetricsFinish);
+<a href=#53 id=53 data-nosnippet>53</a>    <span class="macro">tracing::info!</span>(<span class="string">"metrics task finished"</span>);
+<a href=#54 id=54 data-nosnippet>54</a>    ctx.syscall(SystemCall::Done);
+<a href=#55 id=55 data-nosnippet>55</a>}
+<a href=#56 id=56 data-nosnippet>56</a>
+<a href=#57 id=57 data-nosnippet>57</a><span class="doccomment">/// Initialize the daemon and return a running instance.
+<a href=#58 id=58 data-nosnippet>58</a></span><span class="attr">#[instrument(skip(cfg))]
+<a href=#59 id=59 data-nosnippet>59</a></span><span class="kw">pub fn </span>init(cfg: Config) -&gt; anyhow::Result&lt;Daemon&gt; {
+<a href=#60 id=60 data-nosnippet>60</a>    <span class="macro">tracing::info!</span>(<span class="string">"initializing daemon"</span>);
+<a href=#61 id=61 data-nosnippet>61</a>    <span class="prelude-val">Ok</span>(Daemon { cfg })
+<a href=#62 id=62 data-nosnippet>62</a>}
+<a href=#63 id=63 data-nosnippet>63</a>
+<a href=#64 id=64 data-nosnippet>64</a><span class="doccomment">/// Convenience wrapper to initialize and immediately run the daemon.
+<a href=#65 id=65 data-nosnippet>65</a></span><span class="kw">pub fn </span>run(cfg: Config, dump_state: bool) -&gt; anyhow::Result&lt;()&gt; {
+<a href=#66 id=66 data-nosnippet>66</a>    init(cfg)<span class="question-mark">?</span>.run(dump_state)
+<a href=#67 id=67 data-nosnippet>67</a>}
+<a href=#68 id=68 data-nosnippet>68</a>
+<a href=#69 id=69 data-nosnippet>69</a><span class="doccomment">/// Drive the scheduler until a shutdown is requested via the given receiver.
+<a href=#70 id=70 data-nosnippet>70</a>///
+<a href=#71 id=71 data-nosnippet>71</a>/// Loops over `Scheduler::run`, then checks the shutdown receiver so the loop
+<a href=#72 id=72 data-nosnippet>72</a>/// does not busy spin. Used both for signal-based shutdown (production) and
+<a href=#73 id=73 data-nosnippet>73</a>/// injectable shutdown (tests).
+<a href=#74 id=74 data-nosnippet>74</a></span><span class="attr">#[instrument(skip(sched, shutdown))]
+<a href=#75 id=75 data-nosnippet>75</a></span><span class="kw">fn </span>run_blocking(sched: <span class="kw-2">&amp;mut </span>Scheduler, shutdown: <span class="kw-2">&amp;</span>Receiver&lt;()&gt;, dump: bool) -&gt; anyhow::Result&lt;()&gt; {
 <a href=#76 id=76 data-nosnippet>76</a>    <span class="kw">loop </span>{
 <a href=#77 id=77 data-nosnippet>77</a>        sched.run();
 <a href=#78 id=78 data-nosnippet>78</a>        <span class="kw">if </span>shutdown.try_recv().is_ok() {
@@ -100,41 +100,51 @@
 <a href=#100 id=100 data-nosnippet>100</a>}
 <a href=#101 id=101 data-nosnippet>101</a>
 <a href=#102 id=102 data-nosnippet>102</a><span class="kw">impl </span>Daemon {
-<a href=#103 id=103 data-nosnippet>103</a>    <span class="doccomment">/// Run the daemon until a termination signal is delivered.
+<a href=#103 id=103 data-nosnippet>103</a>    <span class="doccomment">/// Run the daemon until a termination signal is delivered (SIGINT/SIGTERM).
 <a href=#104 id=104 data-nosnippet>104</a>    </span><span class="attr">#[instrument(skip(<span class="self">self</span>))]
 <a href=#105 id=105 data-nosnippet>105</a>    </span><span class="kw">pub fn </span>run(<span class="self">self</span>, dump_state: bool) -&gt; anyhow::Result&lt;()&gt; {
-<a href=#106 id=106 data-nosnippet>106</a>        <span class="macro">tracing::info!</span>(<span class="string">"daemon running"</span>);
-<a href=#107 id=107 data-nosnippet>107</a>        <span class="comment">// Watch for config changes (stub).
-<a href=#108 id=108 data-nosnippet>108</a>        </span><span class="kw">let </span>_watcher = signal::start_watcher(<span class="kw-2">&amp;</span><span class="self">self</span>.cfg.config_path).ok();
+<a href=#106 id=106 data-nosnippet>106</a>        <span class="kw">let </span>shutdown = shutdown_channel()<span class="question-mark">?</span>;
+<a href=#107 id=107 data-nosnippet>107</a>        <span class="self">self</span>.run_with_shutdown(shutdown, dump_state)
+<a href=#108 id=108 data-nosnippet>108</a>    }
 <a href=#109 id=109 data-nosnippet>109</a>
-<a href=#110 id=110 data-nosnippet>110</a>        <span class="kw">let </span>addr: SocketAddr = DEFAULT_ADDR.parse().expect(<span class="string">"valid addr"</span>);
-<a href=#111 id=111 data-nosnippet>111</a>        <span class="kw">let </span>http = HttpServer::start(addr)<span class="question-mark">?</span>;
-<a href=#112 id=112 data-nosnippet>112</a>
-<a href=#113 id=113 data-nosnippet>113</a>        <span class="attr">#[cfg(feature = <span class="string">"ipc"</span>)]
-<a href=#114 id=114 data-nosnippet>114</a>        </span><span class="kw">let </span>ipc = ipc::IpcService::start();
-<a href=#115 id=115 data-nosnippet>115</a>        <span class="attr">#[cfg(feature = <span class="string">"grpc"</span>)]
-<a href=#116 id=116 data-nosnippet>116</a>        </span><span class="kw">let </span>grpc = grpc::GrpcService::start();
-<a href=#117 id=117 data-nosnippet>117</a>        <span class="attr">#[cfg(feature = <span class="string">"a2a"</span>)]
-<a href=#118 id=118 data-nosnippet>118</a>        </span><span class="kw">let </span>a2a = a2a::A2aService::start();
+<a href=#110 id=110 data-nosnippet>110</a>    <span class="doccomment">/// Run the daemon until a message is received on `shutdown`.
+<a href=#111 id=111 data-nosnippet>111</a>    ///
+<a href=#112 id=112 data-nosnippet>112</a>    /// Used for tests and programmatic shutdown: the caller controls when the
+<a href=#113 id=113 data-nosnippet>113</a>    /// daemon stops by sending on the channel (or dropping the sender).
+<a href=#114 id=114 data-nosnippet>114</a>    </span><span class="attr">#[instrument(skip(<span class="self">self</span>, shutdown))]
+<a href=#115 id=115 data-nosnippet>115</a>    </span><span class="kw">pub fn </span>run_with_shutdown(<span class="self">self</span>, shutdown: Receiver&lt;()&gt;, dump_state: bool) -&gt; anyhow::Result&lt;()&gt; {
+<a href=#116 id=116 data-nosnippet>116</a>        <span class="macro">tracing::info!</span>(<span class="string">"daemon running"</span>);
+<a href=#117 id=117 data-nosnippet>117</a>        <span class="comment">// Watch for config changes (stub).
+<a href=#118 id=118 data-nosnippet>118</a>        </span><span class="kw">let </span>_watcher = signal::start_watcher(<span class="kw-2">&amp;</span><span class="self">self</span>.cfg.config_path).ok();
 <a href=#119 id=119 data-nosnippet>119</a>
-<a href=#120 id=120 data-nosnippet>120</a>        <span class="kw">let </span><span class="kw-2">mut </span>sched = Scheduler::new();
-<a href=#121 id=121 data-nosnippet>121</a>        <span class="kw">unsafe </span>{
-<a href=#122 id=122 data-nosnippet>122</a>            sched.spawn_system(looptask_wal_flush);
-<a href=#123 id=123 data-nosnippet>123</a>            sched.spawn_system(looptask_metrics);
-<a href=#124 id=124 data-nosnippet>124</a>        }
-<a href=#125 id=125 data-nosnippet>125</a>        run_blocking(<span class="kw-2">&amp;mut </span>sched, dump_state)<span class="question-mark">?</span>;
-<a href=#126 id=126 data-nosnippet>126</a>
-<a href=#127 id=127 data-nosnippet>127</a>        http.shutdown();
-<a href=#128 id=128 data-nosnippet>128</a>
-<a href=#129 id=129 data-nosnippet>129</a>        <span class="attr">#[cfg(feature = <span class="string">"ipc"</span>)]
-<a href=#130 id=130 data-nosnippet>130</a>        </span>ipc.shutdown();
-<a href=#131 id=131 data-nosnippet>131</a>        <span class="attr">#[cfg(feature = <span class="string">"grpc"</span>)]
-<a href=#132 id=132 data-nosnippet>132</a>        </span>grpc.shutdown();
-<a href=#133 id=133 data-nosnippet>133</a>        <span class="attr">#[cfg(feature = <span class="string">"a2a"</span>)]
-<a href=#134 id=134 data-nosnippet>134</a>        </span>a2a.shutdown();
-<a href=#135 id=135 data-nosnippet>135</a>
-<a href=#136 id=136 data-nosnippet>136</a>        pal::emit(DaemonEvent::ShutdownComplete);
-<a href=#137 id=137 data-nosnippet>137</a>        <span class="macro">tracing::info!</span>(<span class="string">"daemon shutdown complete"</span>);
-<a href=#138 id=138 data-nosnippet>138</a>        <span class="prelude-val">Ok</span>(())
-<a href=#139 id=139 data-nosnippet>139</a>    }
-<a href=#140 id=140 data-nosnippet>140</a>}</code></pre></div></section></main></body></html>
+<a href=#120 id=120 data-nosnippet>120</a>        <span class="kw">let </span>addr: SocketAddr = DEFAULT_ADDR.parse().expect(<span class="string">"valid addr"</span>);
+<a href=#121 id=121 data-nosnippet>121</a>        <span class="kw">let </span>http = HttpServer::start(addr)<span class="question-mark">?</span>;
+<a href=#122 id=122 data-nosnippet>122</a>
+<a href=#123 id=123 data-nosnippet>123</a>        <span class="attr">#[cfg(feature = <span class="string">"ipc"</span>)]
+<a href=#124 id=124 data-nosnippet>124</a>        </span><span class="kw">let </span>ipc = ipc::IpcService::start();
+<a href=#125 id=125 data-nosnippet>125</a>        <span class="attr">#[cfg(feature = <span class="string">"grpc"</span>)]
+<a href=#126 id=126 data-nosnippet>126</a>        </span><span class="kw">let </span>grpc = grpc::GrpcService::start();
+<a href=#127 id=127 data-nosnippet>127</a>        <span class="attr">#[cfg(feature = <span class="string">"a2a"</span>)]
+<a href=#128 id=128 data-nosnippet>128</a>        </span><span class="kw">let </span>a2a = a2a::A2aService::start();
+<a href=#129 id=129 data-nosnippet>129</a>
+<a href=#130 id=130 data-nosnippet>130</a>        <span class="kw">let </span><span class="kw-2">mut </span>sched = Scheduler::new();
+<a href=#131 id=131 data-nosnippet>131</a>        <span class="kw">unsafe </span>{
+<a href=#132 id=132 data-nosnippet>132</a>            sched.spawn_system(looptask_wal_flush);
+<a href=#133 id=133 data-nosnippet>133</a>            sched.spawn_system(looptask_metrics);
+<a href=#134 id=134 data-nosnippet>134</a>        }
+<a href=#135 id=135 data-nosnippet>135</a>        run_blocking(<span class="kw-2">&amp;mut </span>sched, <span class="kw-2">&amp;</span>shutdown, dump_state)<span class="question-mark">?</span>;
+<a href=#136 id=136 data-nosnippet>136</a>
+<a href=#137 id=137 data-nosnippet>137</a>        http.shutdown();
+<a href=#138 id=138 data-nosnippet>138</a>
+<a href=#139 id=139 data-nosnippet>139</a>        <span class="attr">#[cfg(feature = <span class="string">"ipc"</span>)]
+<a href=#140 id=140 data-nosnippet>140</a>        </span>ipc.shutdown();
+<a href=#141 id=141 data-nosnippet>141</a>        <span class="attr">#[cfg(feature = <span class="string">"grpc"</span>)]
+<a href=#142 id=142 data-nosnippet>142</a>        </span>grpc.shutdown();
+<a href=#143 id=143 data-nosnippet>143</a>        <span class="attr">#[cfg(feature = <span class="string">"a2a"</span>)]
+<a href=#144 id=144 data-nosnippet>144</a>        </span>a2a.shutdown();
+<a href=#145 id=145 data-nosnippet>145</a>
+<a href=#146 id=146 data-nosnippet>146</a>        pal::emit(DaemonEvent::ShutdownComplete);
+<a href=#147 id=147 data-nosnippet>147</a>        <span class="macro">tracing::info!</span>(<span class="string">"daemon shutdown complete"</span>);
+<a href=#148 id=148 data-nosnippet>148</a>        <span class="prelude-val">Ok</span>(())
+<a href=#149 id=149 data-nosnippet>149</a>    }
+<a href=#150 id=150 data-nosnippet>150</a>}</code></pre></div></section></main></body></html>
