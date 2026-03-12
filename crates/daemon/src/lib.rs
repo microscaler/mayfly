@@ -5,11 +5,11 @@ pub mod a2a;
 pub mod config;
 #[cfg(feature = "grpc")]
 pub mod grpc;
-mod http;
+pub mod http;
 #[cfg(feature = "ipc")]
 pub mod ipc;
 mod pal;
-mod signal;
+pub mod signal;
 
 use crossbeam::channel::{Receiver, RecvTimeoutError};
 use scheduler::{Scheduler, SystemCall, TaskContext};

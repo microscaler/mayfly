@@ -64,3 +64,13 @@ install-hooks:
 # Run pre-commit hooks on all files (without committing)
 pre-commit:
     pre-commit run --all-files
+
+# Run tests with coverage and print summary (requires: cargo install cargo-llvm-cov, Rust nightly with llvm-tools)
+coverage:
+    cargo llvm-cov test --workspace --no-fail-fast
+    cargo llvm-cov report
+
+# Generate HTML coverage report in ./coverage/ (run after coverage or alone)
+coverage-report:
+    cargo llvm-cov report --html --output-dir coverage
+    @echo "Open coverage/index.html in a browser"

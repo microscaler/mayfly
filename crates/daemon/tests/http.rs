@@ -1,45 +1,46 @@
-use daemon::{self, config::Config};
-use serial_test::serial;
-use signal_hook::consts::SIGTERM;
-use signal_hook::low_level::raise;
-use std::time::Duration;
+//! Tests for HTTP server: /__health, /metrics, and 404.
+
+use daemon::http::HttpServer;
+use std::net::TcpListener;
 
 #[test]
-#[serial]
-fn health_endpoint_serves_ok() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("config.toml");
-    std::fs::write(&path, "").unwrap();
-
-    let cfg = Config::load(&path).unwrap();
-    let daemon = daemon::init(cfg).unwrap();
-    let handle = std::thread::spawn(move || daemon.run(false));
-    std::thread::sleep(Duration::from_millis(100));
-
-    let resp = reqwest::blocking::get("http://127.0.0.1:3000/__health").unwrap();
-    assert_eq!(resp.status(), reqwest::StatusCode::OK);
-    assert_eq!(resp.text().unwrap(), "ok");
-
-    raise(SIGTERM).unwrap();
-    handle.join().unwrap().unwrap();
+fn http_health_returns_ok() {
+    let addr = TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap();
+    let server = HttpServer::start(addr).unwrap();
+    let url = format!("http://{addr}/__health");
+    let res = reqwest::blocking::get(&url).unwrap();
+    assert_eq!(res.status().as_u16(), 200);
+    assert_eq!(res.text().unwrap(), "ok");
+    server.shutdown();
 }
 
 #[test]
-#[serial]
-fn metrics_endpoint_serves_text() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("config.toml");
-    std::fs::write(&path, "").unwrap();
+fn http_metrics_returns_placeholder() {
+    let addr = TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap();
+    let server = HttpServer::start(addr).unwrap();
+    let url = format!("http://{addr}/metrics");
+    let res = reqwest::blocking::get(&url).unwrap();
+    assert_eq!(res.status().as_u16(), 200);
+    assert_eq!(res.text().unwrap(), "# no metrics");
+    server.shutdown();
+}
 
-    let cfg = Config::load(&path).unwrap();
-    let daemon = daemon::init(cfg).unwrap();
-    let handle = std::thread::spawn(move || daemon.run(false));
-    std::thread::sleep(Duration::from_millis(100));
-
-    let resp = reqwest::blocking::get("http://127.0.0.1:3000/metrics").unwrap();
-    assert_eq!(resp.status(), reqwest::StatusCode::OK);
-    assert!(resp.text().unwrap().contains("# no metrics"));
-
-    raise(SIGTERM).unwrap();
-    handle.join().unwrap().unwrap();
+#[test]
+fn http_unknown_path_returns_404() {
+    let addr = TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap();
+    let server = HttpServer::start(addr).unwrap();
+    let url = format!("http://{addr}/unknown");
+    let res = reqwest::blocking::get(&url).unwrap();
+    assert_eq!(res.status().as_u16(), 404);
+    assert_eq!(res.text().unwrap(), "not found");
+    server.shutdown();
 }
