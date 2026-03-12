@@ -6,6 +6,46 @@ use std::sync::{Arc, Barrier};
 use std::thread::{Scope, ScopedJoinHandle};
 use std::time::{Duration, Instant};
 
+/// Request for the scheduler thread to run a closure that may call `spawn` (or related) and return the new `TaskId`.
+/// Used with [`Scheduler::run_with_spawn_requests`] so a dedicated scheduler thread owns all spawning.
+pub struct SpawnRequest {
+    run: Box<dyn FnOnce(&mut Scheduler) -> TaskId + Send>,
+    reply: Option<Sender<TaskId>>,
+}
+
+impl SpawnRequest {
+    /// Build a spawn request that does not send the new `TaskId` back.
+    pub fn new<F>(f: F) -> Self
+    where
+        F: FnOnce(&mut Scheduler) -> TaskId + Send + 'static,
+    {
+        Self {
+            run: Box::new(f),
+            reply: None,
+        }
+    }
+
+    /// Build a spawn request that sends the new `TaskId` on `reply` after spawning.
+    pub fn with_reply<F>(f: F, reply: Sender<TaskId>) -> Self
+    where
+        F: FnOnce(&mut Scheduler) -> TaskId + Send + 'static,
+    {
+        Self {
+            run: Box::new(f),
+            reply: Some(reply),
+        }
+    }
+
+    /// Run the request on the given scheduler (consumes `self`). Sends the returned `TaskId` on the reply channel if present.
+    pub fn apply(self, sched: &mut Scheduler) -> TaskId {
+        let tid = (self.run)(sched);
+        if let Some(s) = self.reply {
+            let _ = s.send(tid);
+        }
+        tid
+    }
+}
+
 #[cfg(feature = "async-io")]
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
 
@@ -319,12 +359,32 @@ impl Scheduler {
     /// Run the scheduler loop, processing system calls from tasks.
     #[cfg(not(feature = "async-io"))]
     pub fn run(&mut self) -> Vec<TaskId> {
+        self.run_inner(None)
+    }
+
+    /// Run the scheduler loop, processing spawn requests and system calls.
+    /// Use this when the scheduler runs on a dedicated thread: pass the receiver half of a channel;
+    /// other threads send [`SpawnRequest`]s so the scheduler thread is the one that calls `spawn`.
+    #[cfg(not(feature = "async-io"))]
+    pub fn run_with_spawn_requests(&mut self, spawn_rx: Receiver<SpawnRequest>) -> Vec<TaskId> {
+        self.run_inner(Some(spawn_rx))
+    }
+
+    #[cfg(not(feature = "async-io"))]
+    fn run_inner(&mut self, spawn_rx: Option<Receiver<SpawnRequest>>) -> Vec<TaskId> {
         let mut done_order = Vec::new();
         let mut idle_ticks = 0;
         const MAX_IDLE_TICKS: usize = 3;
 
         loop {
             let mut did_work = false;
+
+            if let Some(ref rx) = spawn_rx {
+                while let Ok(req) = rx.try_recv() {
+                    req.apply(self);
+                    did_work = true;
+                }
+            }
 
             // Process finalization queue first so cancelled tasks are removed before we pop from ready
             while let Some(tid) = self.finalization_queue.pop() {
@@ -527,12 +587,28 @@ impl Scheduler {
 
     #[cfg(feature = "async-io")]
     pub fn run(&mut self) -> Vec<TaskId> {
+        self.run_inner_async(None)
+    }
+
+    #[cfg(feature = "async-io")]
+    pub fn run_with_spawn_requests(&mut self, spawn_rx: Receiver<SpawnRequest>) -> Vec<TaskId> {
+        self.run_inner_async(Some(spawn_rx))
+    }
+
+    #[cfg(feature = "async-io")]
+    fn run_inner_async(&mut self, spawn_rx: Option<Receiver<SpawnRequest>>) -> Vec<TaskId> {
         let mut done_order = Vec::new();
         let mut events = Events::with_capacity(8);
         while !self.tasks.is_empty()
             || !self.finalization_queue.is_empty()
             || !self.ready.is_empty()
         {
+            if let Some(ref rx) = spawn_rx {
+                while let Ok(req) = rx.try_recv() {
+                    req.apply(self);
+                }
+            }
+
             // Process finalization queue first so cancelled tasks are removed
             while let Some(tid) = self.finalization_queue.pop() {
                 if let Some(task) = self.tasks.get(&tid) {
@@ -757,11 +833,14 @@ impl Scheduler {
     ///
     /// # Example (single-threaded test)
     /// ```
+    /// use scheduler::{Scheduler, SystemCall};
     /// let mut sched = Scheduler::new();
-    /// let tid = sched.spawn_with_priority(5, |ctx| {
-    ///     if ctx.is_cancelled() { ctx.syscall(SystemCall::Done); return; }
-    ///     ctx.syscall(SystemCall::Done);
-    /// });
+    /// let tid = unsafe {
+    ///     sched.spawn_with_priority(5, |ctx| {
+    ///         if ctx.is_cancelled() { ctx.syscall(SystemCall::Done); return; }
+    ///         ctx.syscall(SystemCall::Done);
+    ///     })
+    /// };
     /// sched.cancel_task(tid);
     /// let order = sched.run();
     /// assert!(order.contains(&tid));

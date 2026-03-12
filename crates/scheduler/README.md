@@ -6,6 +6,24 @@ The `scheduler` crate implements Tiffany’s coroutine-based cooperative task sc
 
 ---
 
+## Channel model
+
+- **Syscall channel:** Tasks (may coroutines) send `(TaskId, SystemCall)` on an unbounded crossbeam channel; a single **run loop** receives and updates scheduler state. This is **MPSC** (multi-producer, single-consumer).
+- **Same-thread rule:** May coroutines run only on the thread that called `spawn`. The run loop and all task spawning must therefore run on the **same thread**, or use the **spawn-request API** so that a dedicated scheduler thread owns spawning (see [Scheduler-thread-owned spawning](#scheduler-thread-owned-spawning) below).
+- **MPMC option:** Multiple consumer threads (cloning the syscall `Receiver`) are possible with shared or partitioned scheduler state; see the [design doc](../../../docs/design-mayfly-channels-mpmc.md) for options and trade-offs. Current implementation is single-consumer.
+
+### Scheduler-thread-owned spawning
+
+To run the scheduler on a **dedicated thread** without deadlock, that thread must be the one that calls `spawn` (so coroutines run on it). Use the **spawn-request API**:
+
+1. Create a spawn-request channel: `let (spawn_tx, spawn_rx) = unbounded()`.
+2. Start a thread that owns the `Scheduler` and calls `sched.run_with_spawn_requests(spawn_rx)`.
+3. From other threads, send `SpawnRequest` values via `spawn_tx`; each request runs a closure that receives `&mut Scheduler` and may call `spawn`, `spawn_with_priority`, etc. Optionally include a reply sender to get the new `TaskId` back.
+
+See `Scheduler::run_with_spawn_requests` and `SpawnRequest` in the API docs.
+
+---
+
 ## 🎯 MVP Objective
 
 The scheduler should:
