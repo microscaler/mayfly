@@ -56,3 +56,11 @@ nextest-test:
     cargo nextest run --workspace --all-targets
 
 alias nt := nextest-test
+
+# Install pre-commit hooks (fmt + clippy). Requires: pip install pre-commit (or brew install pre-commit)
+install-hooks:
+    pre-commit install
+
+# Run pre-commit hooks on all files (without committing)
+pre-commit:
+    pre-commit run --all-files

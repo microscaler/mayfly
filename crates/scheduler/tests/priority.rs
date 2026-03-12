@@ -149,13 +149,12 @@ fn cancellation_before_run() {
     };
     sched.cancel_task(t1);
     let order = sched.run();
-    assert!(order.contains(&t1), "order = {:?}", order);
+    assert!(order.contains(&t1), "order = {order:?}");
     let state = sched.task_state(t1);
     assert_eq!(
         state,
         Some(TaskState::Finished(TaskCompletionReason::WorkSkipped)),
-        "cancelled-before-run should be WorkSkipped: {:?}",
-        state
+        "cancelled-before-run should be WorkSkipped: {state:?}"
     );
 }
 
@@ -184,8 +183,7 @@ fn cancellation_during_execution() {
     assert!(
         state == Some(TaskState::Finished(TaskCompletionReason::WorkSkipped))
             || state == Some(TaskState::Finished(TaskCompletionReason::WorkDone)),
-        "Task should be skipped or done: {:?}",
-        state
+        "Task should be skipped or done: {state:?}"
     );
 }
 

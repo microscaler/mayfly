@@ -74,8 +74,16 @@ We follow idiomatic Rust standards and enforce them via:
 
 ```bash
 cargo fmt --all
-cargo clippy --workspace --all-targets --all-features
+cargo clippy --workspace --all-targets -- -D warnings
 ```
+
+**Pre-commit hooks** run fmt and clippy automatically so bad fmt/lint never gets committed. Install once (requires [pre-commit](https://pre-commit.com), e.g. `pip install pre-commit` or `brew install pre-commit`):
+
+```bash
+pre-commit install
+```
+
+After that, every `git commit` will run `cargo fmt --all -- --check` and `cargo clippy --workspace --all-targets -- -D warnings`; the commit is rejected if either fails. Fix with `cargo fmt --all` and address clippy lints, then commit again. Config: `.pre-commit-config.yaml`.
 
 * Avoid `.unwrap()` and `.expect()` in library code
 * Prefer `?` and structured error types

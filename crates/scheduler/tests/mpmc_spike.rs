@@ -44,7 +44,7 @@ fn mpmc_cloned_receiver_and_segqueue_handoff() {
     let mut count = 0u64;
     while let Some((tid, _)) = queue.pop() {
         count += 1;
-        assert!(tid >= 1 && tid <= N);
+        assert!((1..=N).contains(&tid));
     }
     assert_eq!(count, N);
 }
