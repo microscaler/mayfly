@@ -1,0 +1,11 @@
+# Nextest configuration for Mayfly
+# See https://nexte.st/docs/configuration/
+
+[profile.default]
+# Local dev: fail fast, one retry for flaky tests
+retries = 1
+
+# CI: do not cancel on first failure so we see all test results
+[profile.ci]
+fail-fast = false
+retries = 1

@@ -14,6 +14,12 @@ Mayfly isn't just a job runner — it's a scheduler, runtime, and reasoning subs
 
 ---
 
+## 🔗 Consumed by Tiffany
+
+Tiffany consumes this repo as a **path dependency** for its executor (task execution). See [Tiffany's README](https://github.com/microscaler/tiffany) for the expected clone layout (e.g. `tiffany` and `mayfly` as siblings under a common parent).
+
+---
+
 ## 🧬 Origin
 
 Mayfly originated as the internal kernel of the Tiffany cognitive agent system, extracted as a standalone engine to be reused across Microscaler’s agent stack. Designed by Charles Sibbald and the Microscaler core team, it embodies the ethos of resilience, composability, and minimalism.
@@ -295,6 +301,7 @@ fn main() {
 
 ## 🧪 Testing & Validation
 
+* **Nextest**: run tests in parallel with `just nt` or `cargo nextest run --workspace --all-targets`. Config: `.config/nextest.toml` (includes a `ci` profile for CI).
 * Property-based task and queue testing
 * Load tests across thousands of tasks
 * Time simulation + determinism

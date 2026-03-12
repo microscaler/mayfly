@@ -51,8 +51,8 @@ test-scheduler:
 test-daemon:
     cargo test -p daemon
 
-# Run nextest for faster test execution
+# Run tests with nextest (faster, parallel execution)
 nextest-test:
-    cargo nextest run --workspace --all-targets --fail-fast --retries 1
+    cargo nextest run --workspace --all-targets
 
 alias nt := nextest-test
