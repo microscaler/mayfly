@@ -16,10 +16,11 @@ pub struct ReadyEntry {
 
 impl Ord for ReadyEntry {
     fn cmp(&self, other: &Self) -> Ordering {
-        other
-            .pri
-            .cmp(&self.pri)
-            .then_with(|| other.seq.cmp(&self.seq))
+        // Smaller pri = higher priority = should be "greater" so the max-heap pops it first.
+        self.pri
+            .cmp(&other.pri)
+            .reverse()
+            .then_with(|| self.seq.cmp(&other.seq).reverse())
     }
 }
 
