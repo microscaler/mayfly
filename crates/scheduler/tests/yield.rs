@@ -1,5 +1,5 @@
 use crossbeam::channel::unbounded;
-use scheduler::{SpawnRequest, Scheduler, SystemCall, task::TaskContext};
+use scheduler::{Scheduler, SpawnRequest, SystemCall, task::TaskContext};
 
 /// Scheduler runs on a dedicated thread and owns spawning via spawn requests; tasks run on that thread.
 /// Completion order: b (no yield) then a (yield_now then Done).
@@ -21,14 +21,12 @@ fn yield_order() {
     let tb = task_barrier.clone();
     spawn_tx
         .send(SpawnRequest::with_reply(
-            move |sched| {
-                unsafe {
-                    sched.spawn(move |ctx: TaskContext| {
-                        tb.wait();
-                        ctx.yield_now();
-                        ctx.syscall(SystemCall::Done);
-                    })
-                }
+            move |sched| unsafe {
+                sched.spawn(move |ctx: TaskContext| {
+                    tb.wait();
+                    ctx.yield_now();
+                    ctx.syscall(SystemCall::Done);
+                })
             },
             reply_a_tx,
         ))
@@ -37,13 +35,11 @@ fn yield_order() {
     let tb = task_barrier.clone();
     spawn_tx
         .send(SpawnRequest::with_reply(
-            move |sched| {
-                unsafe {
-                    sched.spawn(move |ctx: TaskContext| {
-                        tb.wait();
-                        ctx.syscall(SystemCall::Done);
-                    })
-                }
+            move |sched| unsafe {
+                sched.spawn(move |ctx: TaskContext| {
+                    tb.wait();
+                    ctx.syscall(SystemCall::Done);
+                })
             },
             reply_b_tx,
         ))

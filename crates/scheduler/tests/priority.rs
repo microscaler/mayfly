@@ -25,8 +25,16 @@ fn priority_order() {
         })
     };
     let order = sched.run();
-    assert_eq!(order.first().copied(), Some(1), "higher priority (5) should finish first");
-    assert_eq!(order.last().copied(), Some(2), "lower priority (20) should finish last");
+    assert_eq!(
+        order.first().copied(),
+        Some(1),
+        "higher priority (5) should finish first"
+    );
+    assert_eq!(
+        order.last().copied(),
+        Some(2),
+        "lower priority (20) should finish last"
+    );
 }
 
 #[test]
@@ -205,7 +213,10 @@ fn dependency_chain_with_cancellation() {
     assert!(order.contains(&a));
     assert!(order.contains(&b));
     // c is finalized as cancelled (dependent of b) and appears in order with WorkSkipped
-    assert!(order.contains(&c), "c should be finalized when b is cancelled");
+    assert!(
+        order.contains(&c),
+        "c should be finalized when b is cancelled"
+    );
     let state_b = sched.task_state(b);
     assert_eq!(
         state_b,

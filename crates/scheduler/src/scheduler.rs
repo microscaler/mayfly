@@ -390,8 +390,13 @@ impl Scheduler {
             while let Some(tid) = self.finalization_queue.pop() {
                 if let Some(task) = self.tasks.get(&tid) {
                     if task.cancelled {
-                        let dependents: Vec<TaskId> =
-                            self.dependents.get(&tid).cloned().unwrap_or_default().into_iter().collect();
+                        let dependents: Vec<TaskId> = self
+                            .dependents
+                            .get(&tid)
+                            .cloned()
+                            .unwrap_or_default()
+                            .into_iter()
+                            .collect();
                         self.states.insert(
                             tid,
                             TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
@@ -508,7 +513,9 @@ impl Scheduler {
             }
 
             // Finalize cancelled tasks immediately when popped (state may be Ready or Running from spawn)
-            if let Some(task) = self.tasks.get(&tid) && task.cancelled {
+            if let Some(task) = self.tasks.get(&tid)
+                && task.cancelled
+            {
                 self.states.insert(
                     tid,
                     TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
@@ -559,7 +566,13 @@ impl Scheduler {
             while let Some(tid) = self.finalization_queue.pop() {
                 if let Some(task) = self.tasks.get(&tid) {
                     if task.cancelled {
-                        let dependents: Vec<TaskId> = self.dependents.get(&tid).cloned().unwrap_or_default().into_iter().collect();
+                        let dependents: Vec<TaskId> = self
+                            .dependents
+                            .get(&tid)
+                            .cloned()
+                            .unwrap_or_default()
+                            .into_iter()
+                            .collect();
                         self.states.insert(
                             tid,
                             TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
@@ -613,8 +626,13 @@ impl Scheduler {
             while let Some(tid) = self.finalization_queue.pop() {
                 if let Some(task) = self.tasks.get(&tid) {
                     if task.cancelled {
-                        let dependents: Vec<TaskId> =
-                            self.dependents.get(&tid).cloned().unwrap_or_default().into_iter().collect();
+                        let dependents: Vec<TaskId> = self
+                            .dependents
+                            .get(&tid)
+                            .cloned()
+                            .unwrap_or_default()
+                            .into_iter()
+                            .collect();
                         self.states.insert(
                             tid,
                             TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
@@ -705,7 +723,9 @@ impl Scheduler {
             }
 
             // Finalize cancelled tasks immediately when popped (state may be Ready or Running from spawn)
-            if let Some(task) = self.tasks.get(&tid) && task.cancelled {
+            if let Some(task) = self.tasks.get(&tid)
+                && task.cancelled
+            {
                 self.states.insert(
                     tid,
                     TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
@@ -757,7 +777,13 @@ impl Scheduler {
             if let Some(task) = self.tasks.get(&tid)
                 && task.cancelled
             {
-                let dependents: Vec<TaskId> = self.dependents.get(&tid).cloned().unwrap_or_default().into_iter().collect();
+                let dependents: Vec<TaskId> = self
+                    .dependents
+                    .get(&tid)
+                    .cloned()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .collect();
                 self.states.insert(
                     tid,
                     TaskState::Finished(crate::task::TaskCompletionReason::WorkSkipped),
@@ -928,7 +954,9 @@ impl Scheduler {
                     .states
                     .get(&tid)
                     .cloned()
-                    .unwrap_or(TaskState::Finished(crate::task::TaskCompletionReason::WorkDone));
+                    .unwrap_or(TaskState::Finished(
+                        crate::task::TaskCompletionReason::WorkDone,
+                    ));
                 let (waiters, _) = self.wait_map.complete(tid, complete_state);
                 for waiter in waiters {
                     self.push_ready(waiter);

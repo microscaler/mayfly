@@ -17,7 +17,7 @@ mod wait_map;
 pub use io::IoSource;
 pub use pal::{TaskEvent, emit as pal_emit};
 pub use ready_queue::{ReadyEntry, ReadyQueue};
-pub use scheduler::{Scheduler, SpawnRequest, SchedulerState};
+pub use scheduler::{Scheduler, SchedulerState, SpawnRequest};
 pub use syscall::SystemCall;
 pub use task::TaskContext;
 pub use task::{Task, TaskId};

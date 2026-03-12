@@ -1484,6 +1484,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "crossbeam",
+ "crossbeam-queue",
  "insta",
  "may",
  "mio 0.8.11",

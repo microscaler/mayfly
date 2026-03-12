@@ -3,7 +3,10 @@ use daemon::{self, DaemonEvent, config::Config, take_events};
 use serial_test::serial;
 use std::time::Duration;
 
-fn run_daemon_until_shutdown(cfg: Config, shutdown_after_ms: u64) -> std::thread::JoinHandle<anyhow::Result<()>> {
+fn run_daemon_until_shutdown(
+    cfg: Config,
+    shutdown_after_ms: u64,
+) -> std::thread::JoinHandle<anyhow::Result<()>> {
     let (tx, rx) = bounded(1);
     let daemon = daemon::init(cfg).unwrap();
     let handle = std::thread::spawn(move || daemon.run_with_shutdown(rx, false));

@@ -11,7 +11,7 @@ pub mod ipc;
 mod pal;
 mod signal;
 
-use crossbeam::channel::{RecvTimeoutError, Receiver};
+use crossbeam::channel::{Receiver, RecvTimeoutError};
 use scheduler::{Scheduler, SystemCall, TaskContext};
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -72,11 +72,7 @@ pub fn run(cfg: Config, dump_state: bool) -> anyhow::Result<()> {
 /// does not busy spin. Used both for signal-based shutdown (production) and
 /// injectable shutdown (tests).
 #[instrument(skip(sched, shutdown))]
-fn run_blocking(
-    sched: &mut Scheduler,
-    shutdown: &Receiver<()>,
-    dump: bool,
-) -> anyhow::Result<()> {
+fn run_blocking(sched: &mut Scheduler, shutdown: &Receiver<()>, dump: bool) -> anyhow::Result<()> {
     loop {
         sched.run();
         if shutdown.try_recv().is_ok() {
@@ -116,11 +112,7 @@ impl Daemon {
     /// Used for tests and programmatic shutdown: the caller controls when the
     /// daemon stops by sending on the channel (or dropping the sender).
     #[instrument(skip(self, shutdown))]
-    pub fn run_with_shutdown(
-        self,
-        shutdown: Receiver<()>,
-        dump_state: bool,
-    ) -> anyhow::Result<()> {
+    pub fn run_with_shutdown(self, shutdown: Receiver<()>, dump_state: bool) -> anyhow::Result<()> {
         tracing::info!("daemon running");
         // Watch for config changes (stub).
         let _watcher = signal::start_watcher(&self.cfg.config_path).ok();
