@@ -1,13 +1,431 @@
+/* Clean, high-contrast doc theme. No purple; readable on light and dark. */
+
 body {
     font-family: "Fira Sans", "Open Sans", sans-serif;
-    background-color: #fdf9ff;
-    color: #24123b;
+    background-color: #fafafa;
+    color: #1e293b;
+}
+
+.content,
+.content main,
+.content p,
+.content li {
+    color: #1e293b;
 }
 
 h1, h2, h3, h4, h5, h6 {
-    color: #7950f2;
+    color: #0f172a;
 }
 
 a {
-    color: #7950f2;
+    color: #0369a1;
+}
+
+a:visited {
+    color: #0e7490;
+}
+
+a:hover {
+    color: #0284c7;
+}
+
+/* Mermaid: clear box colours and dark text on light background */
+.mermaid svg {
+    background: #fafafa !important;
+}
+/* Graph/flowchart: node and cluster box fills and borders (incl. cylinder/database shape) */
+.mermaid .node rect,
+.mermaid .node polygon,
+.mermaid .node circle,
+.mermaid .node ellipse,
+.mermaid .node path {
+    fill: #e2e8f0 !important;
+    stroke: #64748b !important;
+}
+.mermaid .cluster rect {
+    fill: #f1f5f9 !important;
+    stroke: #64748b !important;
+}
+/* Sequence: participant/actor box fills and borders */
+/* Sequence participant/actor boxes (light mode) */
+.mermaid .actor rect,
+.mermaid .participant rect,
+.mermaid [class*="actor"] rect,
+.mermaid [class*="participant"] rect {
+    fill: #e2e8f0 !important;
+    stroke: #64748b !important;
+}
+.mermaid .activation rect {
+    fill: #cbd5e1 !important;
+    stroke: #64748b !important;
+}
+.mermaid .label rect,
+.mermaid .labelBox rect {
+    fill: #e2e8f0 !important;
+    stroke: #64748b !important;
+}
+.mermaid .note rect {
+    fill: #fef3c7 !important;
+    stroke: #d97706 !important;
+}
+.mermaid text,
+.mermaid .label text,
+.mermaid span,
+.mermaid tspan,
+.mermaid .node text,
+.mermaid .node tspan,
+.mermaid .nodeLabel,
+.mermaid .cluster-label text,
+.mermaid .edgeLabel text {
+    fill: #1e293b !important;
+    color: #1e293b !important;
+}
+/* Edge label boxes (e.g. "Sleep Request" on arrows): light box → dark text */
+.mermaid .edgeLabel rect,
+.mermaid .edgeLabel .labelBkg {
+    fill: #e2e8f0 !important;
+    stroke: #64748b !important;
+}
+.mermaid .edgeLabel span,
+.mermaid .edgeLabel p {
+    color: #1e293b !important;
+}
+/* Lines and arrows */
+.mermaid line,
+.mermaid path,
+.mermaid polyline,
+.mermaid polygon,
+.mermaid rect[stroke],
+.mermaid circle[stroke],
+.mermaid ellipse[stroke] {
+    stroke: #334155 !important;
+}
+.mermaid marker path {
+    fill: #334155 !important;
+    stroke: #334155 !important;
+}
+
+/* Dark mode: light text on dark, same accent family (blue), no purple */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #0f172a;
+        color: #e2e8f0;
+    }
+    .content, .content main, .content p, .content li {
+        color: #e2e8f0;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        color: #f1f5f9;
+    }
+    a {
+        color: #7dd3fc;
+    }
+    a:visited {
+        color: #67e8f9;
+    }
+    a:hover {
+        color: #bae6fd;
+    }
+    /* Mermaid on dark page: diagram background and default text */
+    .mermaid svg {
+        background: #1e293b !important;
+    }
+    .mermaid text,
+    .mermaid .label text,
+    .mermaid span,
+    .mermaid tspan,
+    .mermaid .node text,
+    .mermaid .node tspan,
+    .mermaid .nodeLabel,
+    .mermaid .cluster-label text,
+    .mermaid .edgeLabel text,
+    .mermaid .actor-box,
+    .mermaid .actor-man {
+        fill: #f1f5f9 !important;
+        color: #f1f5f9 !important;
+    }
+    /* Sequence: light box → dark text (participant/actor boxes stay light, text dark for contrast) */
+    .mermaid .actor text,
+    .mermaid .actor tspan,
+    .mermaid .participant text,
+    .mermaid .participant tspan,
+    .mermaid [class*="actor"] text,
+    .mermaid [class*="actor"] tspan,
+    .mermaid [class*="participant"] text,
+    .mermaid [class*="participant"] tspan {
+        fill: #1e293b !important;
+        color: #1e293b !important;
+    }
+    .mermaid line,
+    .mermaid path,
+    .mermaid polyline,
+    .mermaid polygon,
+    .mermaid rect[stroke],
+    .mermaid circle[stroke],
+    .mermaid ellipse[stroke] {
+        stroke: #94a3b8 !important;
+    }
+    .mermaid marker path {
+        fill: #94a3b8 !important;
+        stroke: #94a3b8 !important;
+    }
+    /* Sequence: participant/actor boxes = light background so dark text is readable */
+    .mermaid .actor rect,
+    .mermaid .participant rect,
+    .mermaid [class*="actor"] rect,
+    .mermaid [class*="participant"] rect,
+    .mermaid g.actor > rect,
+    .mermaid g.participant > rect {
+        fill: #e2e8f0 !important;
+        stroke: #64748b !important;
+    }
+    .mermaid .activation rect {
+        fill: #475569 !important;
+        stroke: #64748b !important;
+    }
+    /* Sequence label/loop boxes: light background → dark text */
+    .mermaid .label rect,
+    .mermaid .labelBox rect {
+        fill: #e2e8f0 !important;
+        stroke: #64748b !important;
+    }
+    .mermaid .label text,
+    .mermaid .labelBox text,
+    .mermaid .label tspan,
+    .mermaid .labelBox tspan {
+        fill: #1e293b !important;
+        color: #1e293b !important;
+    }
+    /* Graph/flowchart: dark node and cluster boxes (incl. cylinder/database nodes) */
+    .mermaid .node rect,
+    .mermaid .node polygon,
+    .mermaid .node circle,
+    .mermaid .node ellipse,
+    .mermaid .node path {
+        fill: #334155 !important;
+        stroke: #64748b !important;
+    }
+    .mermaid .cluster rect {
+        fill: #1e293b !important;
+        stroke: #64748b !important;
+    }
+    .mermaid .note rect {
+        fill: #78350f !important;
+        stroke: #b45309 !important;
+    }
+    /* Edge label boxes on arrows: light background → dark text for contrast */
+    .mermaid .edgeLabel rect,
+    .mermaid .edgeLabel .labelBkg {
+        fill: #e2e8f0 !important;
+        stroke: #64748b !important;
+    }
+    .mermaid .edgeLabel text,
+    .mermaid .edgeLabel tspan,
+    .mermaid .edgeLabel span,
+    .mermaid .edgeLabel p {
+        fill: #1e293b !important;
+        color: #1e293b !important;
+    }
+}
+
+/* mdbook dark themes (Navy, Coal, Ayu): same Mermaid dark treatment when theme is dark */
+html.navy .mermaid svg,
+html.coal .mermaid svg,
+html.ayu .mermaid svg {
+    background: #1e293b !important;
+}
+html.navy .mermaid text,
+html.navy .mermaid .label text,
+html.navy .mermaid span,
+html.navy .mermaid tspan,
+html.navy .mermaid .node text,
+html.navy .mermaid .node tspan,
+html.navy .mermaid .nodeLabel,
+html.navy .mermaid .cluster-label text,
+html.navy .mermaid .edgeLabel text,
+html.navy .mermaid .actor-box,
+html.navy .mermaid .actor-man,
+html.coal .mermaid text,
+html.coal .mermaid .label text,
+html.coal .mermaid span,
+html.coal .mermaid tspan,
+html.coal .mermaid .node text,
+html.coal .mermaid .node tspan,
+html.coal .mermaid .nodeLabel,
+html.coal .mermaid .cluster-label text,
+html.coal .mermaid .edgeLabel text,
+html.coal .mermaid .actor-box,
+html.coal .mermaid .actor-man,
+html.ayu .mermaid text,
+html.ayu .mermaid .label text,
+html.ayu .mermaid span,
+html.ayu .mermaid tspan,
+html.ayu .mermaid .node text,
+html.ayu .mermaid .node tspan,
+html.ayu .mermaid .nodeLabel,
+html.ayu .mermaid .cluster-label text,
+html.ayu .mermaid .edgeLabel text,
+html.ayu .mermaid .actor-box,
+html.ayu .mermaid .actor-man {
+    fill: #f1f5f9 !important;
+    color: #f1f5f9 !important;
+}
+/* Sequence: label text inside participant/actor boxes must contrast with box */
+html.navy .mermaid .actor text,
+html.navy .mermaid .actor tspan,
+html.navy .mermaid .participant text,
+html.navy .mermaid .participant tspan,
+html.navy .mermaid [class*="actor"] text,
+html.navy .mermaid [class*="actor"] tspan,
+html.navy .mermaid [class*="participant"] text,
+html.navy .mermaid [class*="participant"] tspan,
+html.coal .mermaid .actor text,
+html.coal .mermaid .actor tspan,
+html.coal .mermaid .participant text,
+html.coal .mermaid .participant tspan,
+html.coal .mermaid [class*="actor"] text,
+html.coal .mermaid [class*="actor"] tspan,
+html.coal .mermaid [class*="participant"] text,
+html.coal .mermaid [class*="participant"] tspan,
+html.ayu .mermaid .actor text,
+html.ayu .mermaid .actor tspan,
+html.ayu .mermaid .participant text,
+html.ayu .mermaid .participant tspan,
+html.ayu .mermaid [class*="actor"] text,
+html.ayu .mermaid [class*="actor"] tspan,
+html.ayu .mermaid [class*="participant"] text,
+html.ayu .mermaid [class*="participant"] tspan {
+    fill: #1e293b !important;
+    color: #1e293b !important;
+}
+html.navy .mermaid line,
+html.navy .mermaid path,
+html.navy .mermaid polyline,
+html.navy .mermaid polygon,
+html.navy .mermaid rect[stroke],
+html.navy .mermaid circle[stroke],
+html.navy .mermaid ellipse[stroke],
+html.coal .mermaid line,
+html.coal .mermaid path,
+html.coal .mermaid polyline,
+html.coal .mermaid polygon,
+html.coal .mermaid rect[stroke],
+html.coal .mermaid circle[stroke],
+html.coal .mermaid ellipse[stroke],
+html.ayu .mermaid line,
+html.ayu .mermaid path,
+html.ayu .mermaid polyline,
+html.ayu .mermaid polygon,
+html.ayu .mermaid rect[stroke],
+html.ayu .mermaid circle[stroke],
+html.ayu .mermaid ellipse[stroke] {
+    stroke: #94a3b8 !important;
+}
+html.navy .mermaid marker path,
+html.coal .mermaid marker path,
+html.ayu .mermaid marker path {
+    fill: #94a3b8 !important;
+    stroke: #94a3b8 !important;
+}
+/* Navy/Coal/Ayu: participant/actor boxes = light background, dark text */
+html.navy .mermaid .actor rect,
+html.navy .mermaid .participant rect,
+html.navy .mermaid [class*="actor"] rect,
+html.navy .mermaid [class*="participant"] rect,
+html.navy .mermaid g.actor > rect,
+html.navy .mermaid g.participant > rect,
+html.coal .mermaid .actor rect,
+html.coal .mermaid .participant rect,
+html.coal .mermaid [class*="actor"] rect,
+html.coal .mermaid [class*="participant"] rect,
+html.coal .mermaid g.actor > rect,
+html.coal .mermaid g.participant > rect,
+html.ayu .mermaid .actor rect,
+html.ayu .mermaid .participant rect,
+html.ayu .mermaid [class*="actor"] rect,
+html.ayu .mermaid [class*="participant"] rect,
+html.ayu .mermaid g.actor > rect,
+html.ayu .mermaid g.participant > rect {
+    fill: #e2e8f0 !important;
+    stroke: #64748b !important;
+}
+html.navy .mermaid .activation rect,
+html.coal .mermaid .activation rect,
+html.ayu .mermaid .activation rect {
+    fill: #475569 !important;
+    stroke: #64748b !important;
+}
+/* Label boxes: light background → dark text */
+html.navy .mermaid .label rect,
+html.navy .mermaid .labelBox rect,
+html.coal .mermaid .label rect,
+html.coal .mermaid .labelBox rect,
+html.ayu .mermaid .label rect,
+html.ayu .mermaid .labelBox rect {
+    fill: #e2e8f0 !important;
+    stroke: #64748b !important;
+}
+html.navy .mermaid .label text,
+html.navy .mermaid .labelBox text,
+html.coal .mermaid .label text,
+html.coal .mermaid .labelBox text,
+html.ayu .mermaid .label text,
+html.ayu .mermaid .labelBox text {
+    fill: #1e293b !important;
+    color: #1e293b !important;
+}
+/* Edge label boxes on arrows: light background → dark text */
+html.navy .mermaid .edgeLabel rect,
+html.navy .mermaid .edgeLabel .labelBkg,
+html.coal .mermaid .edgeLabel rect,
+html.coal .mermaid .edgeLabel .labelBkg,
+html.ayu .mermaid .edgeLabel rect,
+html.ayu .mermaid .edgeLabel .labelBkg {
+    fill: #e2e8f0 !important;
+    stroke: #64748b !important;
+}
+html.navy .mermaid .edgeLabel text,
+html.navy .mermaid .edgeLabel tspan,
+html.navy .mermaid .edgeLabel span,
+html.navy .mermaid .edgeLabel p,
+html.coal .mermaid .edgeLabel text,
+html.coal .mermaid .edgeLabel tspan,
+html.coal .mermaid .edgeLabel span,
+html.coal .mermaid .edgeLabel p,
+html.ayu .mermaid .edgeLabel text,
+html.ayu .mermaid .edgeLabel tspan,
+html.ayu .mermaid .edgeLabel span,
+html.ayu .mermaid .edgeLabel p {
+    fill: #1e293b !important;
+    color: #1e293b !important;
+}
+html.navy .mermaid .node rect,
+html.navy .mermaid .node polygon,
+html.navy .mermaid .node circle,
+html.navy .mermaid .node ellipse,
+html.navy .mermaid .node path,
+html.coal .mermaid .node rect,
+html.coal .mermaid .node polygon,
+html.coal .mermaid .node circle,
+html.coal .mermaid .node ellipse,
+html.coal .mermaid .node path,
+html.ayu .mermaid .node rect,
+html.ayu .mermaid .node polygon,
+html.ayu .mermaid .node circle,
+html.ayu .mermaid .node ellipse,
+html.ayu .mermaid .node path {
+    fill: #334155 !important;
+    stroke: #64748b !important;
+}
+html.navy .mermaid .cluster rect,
+html.coal .mermaid .cluster rect,
+html.ayu .mermaid .cluster rect {
+    fill: #1e293b !important;
+    stroke: #64748b !important;
+}
+html.navy .mermaid .note rect,
+html.coal .mermaid .note rect,
+html.ayu .mermaid .note rect {
+    fill: #78350f !important;
+    stroke: #b45309 !important;
 }

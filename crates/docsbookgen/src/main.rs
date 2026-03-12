@@ -37,6 +37,20 @@ fn main() {
 
     // Step 3: Build mdbook (if exists)
     if mdbook_src.exists() {
+        // Copy theme from tracked mdbook-theme/ so CI has mermaid.js and custom.css (docs/ may be gitignored)
+        let theme_src = Path::new("mdbook-theme");
+        let theme_dest = mdbook_src.join("theme");
+        if theme_src.exists() {
+            fs::create_dir_all(&theme_dest).expect("Failed to create docs/mdbook/theme");
+            for entry in fs::read_dir(theme_src).expect("Failed to read mdbook-theme") {
+                let entry = entry.expect("Failed to read mdbook-theme entry");
+                let path = entry.path();
+                if path.is_file() {
+                    let name = path.file_name().expect("filename");
+                    fs::copy(&path, theme_dest.join(name)).expect("Failed to copy theme file");
+                }
+            }
+        }
         println!("📚 Building mdbook...");
         let status = Command::new("mdbook")
             .arg("build")

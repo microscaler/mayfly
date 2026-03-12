@@ -1,0 +1,377 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>ADR-0019: Logging Strategy and Span Hierarchy - Mayfly System Design</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../theme/custom.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Mayfly System Design</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="adr-0019-logging-strategy-and-span-hierarchy"><a class="header" href="#adr-0019-logging-strategy-and-span-hierarchy">ADR-0019: Logging Strategy and Span Hierarchy</a></h1>
+<h2 id="status"><a class="header" href="#status">Status</a></h2>
+<p>Proposed</p>
+<hr />
+<h2 id="context"><a class="header" href="#context">Context</a></h2>
+<p>Effective logging is vital for the observability, debugging, and operational transparency of autonomous agentic runtimes. Without structured logging and detailed execution tracing, debugging complex distributed operations becomes difficult, leading to increased operational overhead and reduced system reliability.</p>
+<p>Common issues in logging for complex systems include:</p>
+<ul>
+<li><strong>Unstructured logs:</strong> Difficult to parse or correlate.</li>
+<li><strong>Lack of contextual tracing:</strong> Limited ability to trace execution flow or diagnose issues.</li>
+<li><strong>Inconsistent log levels and verbosity:</strong> Excessive noise or insufficient detail for meaningful debugging.</li>
+</ul>
+<p>To address these, Tiffany requires a rigorous, structured logging strategy that leverages Rust’s advanced <strong>tracing</strong> framework, clear span hierarchies, structured logs, and consistent log level defaults.</p>
+<hr />
+<h2 id="decision"><a class="header" href="#decision">Decision</a></h2>
+<p>We adopt the Rust <strong>tracing</strong> crate for structured logging and detailed tracing within Tiffany FAR infrastructure, explicitly defining span hierarchies, structured log events, and log level policies.</p>
+<h3 id="core-components"><a class="header" href="#core-components">Core Components:</a></h3>
+<ul>
+<li><strong>Structured Logging:</strong> Use of <code>tracing</code> with structured, JSON-formatted log outputs.</li>
+<li><strong>Detailed Span Hierarchy:</strong> Explicit tracing spans for every significant operation (task execution, VM lifecycle events, API calls).</li>
+<li><strong>Consistent Log Levels:</strong> Clearly defined log level defaults (ERROR, WARN, INFO, DEBUG, TRACE).</li>
+</ul>
+<hr />
+<h2 id="technical-implementation"><a class="header" href="#technical-implementation">Technical Implementation</a></h2>
+<h3 id="1-structured-logging-with-rust-tracing"><a class="header" href="#1-structured-logging-with-rust-tracing">1. Structured Logging with Rust <code>tracing</code></a></h3>
+<p>Tiffany will adopt Rust’s <code>tracing</code> crate, providing structured logs for better parseability and integration with modern log management systems.</p>
+<p><strong>Log event format (JSON example):</strong></p>
+<pre><code class="language-json">{
+  "timestamp": "2025-06-28T10:00:00Z",
+  "level": "INFO",
+  "target": "tinkerbell::orchestrator",
+  "message": "Task execution started",
+  "fields": {
+    "task_id": "task-12345",
+    "agent_id": "agent-67890",
+    "node": "blade-1"
+  }
+}
+</code></pre>
+<h3 id="2-explicit-span-hierarchy"><a class="header" href="#2-explicit-span-hierarchy">2. Explicit Span Hierarchy</a></h3>
+<p>Spans explicitly represent the hierarchy and nesting of tasks, operations, and system interactions.</p>
+<p><strong>Example span hierarchy structure:</strong></p>
+<pre><code class="language-plaintext">Agent Task Execution [trace_id=abc123]
+├── Orchestrator Scheduling
+│   └── Resource Allocation
+├── FAR Agent VM Lifecycle
+│   ├── VM Initialization
+│   ├── Capability Execution
+│   │   └── LLM Interaction
+│   └── VM Termination
+└── Result Reporting
+</code></pre>
+<h3 id="3-span-lifecycle-management"><a class="header" href="#3-span-lifecycle-management">3. Span Lifecycle Management</a></h3>
+<p>Span lifecycle strictly managed using Rust's tracing macros (<code>span!</code>, <code>.enter()</code>, <code>.exit()</code>), clearly delineating entry and exit points:</p>
+<p><strong>Rust tracing code example:</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use tracing::{span, Level};
+
+fn execute_task(task_id: &amp;str) {
+    let task_span = span!(Level::INFO, "task_execution", task_id = task_id);
+    let _enter = task_span.enter();
+
+    schedule_task();
+    execute_vm_lifecycle();
+    report_results();
+}
+
+fn execute_vm_lifecycle() {
+    let vm_span = span!(Level::DEBUG, "vm_lifecycle");
+    let _enter = vm_span.enter();
+
+    vm_initialization();
+    capability_execution();
+    vm_termination();
+}
+<span class="boring">}</span></code></pre></pre>
+<hr />
+<h3 id="4-log-level-defaults"><a class="header" href="#4-log-level-defaults">4. Log Level Defaults</a></h3>
+<p>Explicit guidelines on log levels:</p>
+<div class="table-wrapper"><table><thead><tr><th>Level</th><th>Use-case Example</th><th>Retention Policy</th></tr></thead><tbody>
+<tr><td>ERROR</td><td>Critical failures requiring immediate attention</td><td>High priority</td></tr>
+<tr><td>WARN</td><td>Issues potentially impacting normal operation</td><td>High-medium priority</td></tr>
+<tr><td>INFO</td><td>General operational events and high-level status</td><td>Medium priority</td></tr>
+<tr><td>DEBUG</td><td>Detailed events useful for debugging</td><td>Short-term, detailed</td></tr>
+<tr><td>TRACE</td><td>Highly detailed events, rarely enabled in production</td><td>Temporary debugging</td></tr>
+</tbody></table>
+</div>
+<p>Default log levels: <strong>INFO</strong> in production, <strong>DEBUG</strong> in staging, <strong>TRACE</strong> optionally during local development.</p>
+<hr />
+<h2 id="-diagram-span-hierarchy-visualization"><a class="header" href="#-diagram-span-hierarchy-visualization">📊 Diagram: Span Hierarchy Visualization</a></h2>
+<pre><code class="language-mermaid">graph TD
+  Task[Task Execution - INFO]
+  Task --&gt; Scheduling[Orchestrator Scheduling - INFO]
+  Scheduling --&gt; Allocation[Resource Allocation - DEBUG]
+
+  Task --&gt; VM[FAR Agent VM Lifecycle - INFO]
+  VM --&gt; VM_Init[VM Initialization - DEBUG]
+  VM --&gt; Capability[Capability Execution - DEBUG]
+  Capability --&gt; LLM_Interaction[LLM Interaction - TRACE]
+  VM --&gt; VM_Termination[VM Termination - DEBUG]
+
+  Task --&gt; Reporting[Result Reporting - INFO]
+</code></pre>
+<hr />
+<h2 id="-sequence-diagram-logging-and-span-lifecycle"><a class="header" href="#-sequence-diagram-logging-and-span-lifecycle">🔄 Sequence Diagram: Logging and Span Lifecycle</a></h2>
+<pre><code class="language-mermaid">sequenceDiagram
+  participant FAR Controller
+  participant Orchestrator
+  participant MicroVM (FAR Agent)
+  participant PAL/WAL
+  participant Log Collector (Elastic/Loki)
+
+  FAR Controller-&gt;&gt;Log Collector (Elastic/Loki): Log (INFO): "Task execution started"
+  Orchestrator-&gt;&gt;Log Collector (Elastic/Loki): Log (DEBUG): "Scheduling task, resource allocation started"
+
+  Orchestrator-&gt;&gt;MicroVM (FAR Agent): Start MicroVM
+  MicroVM (FAR Agent)-&gt;&gt;Log Collector (Elastic/Loki): Log (INFO): "VM initialization successful"
+  MicroVM (FAR Agent)-&gt;&gt;Log Collector (Elastic/Loki): Log (TRACE): "LLM interaction started"
+  MicroVM (FAR Agent)-&gt;&gt;Log Collector (Elastic/Loki): Log (DEBUG): "Capability execution completed"
+
+  MicroVM (FAR Agent)-&gt;&gt;Orchestrator: Task completion
+  Orchestrator-&gt;&gt;Log Collector (Elastic/Loki): Log (INFO): "Result reporting complete"
+
+  FAR Controller-&gt;&gt;PAL/WAL: Record final task state
+</code></pre>
+<hr />
+<h2 id="-rationale-for-chosen-approach"><a class="header" href="#-rationale-for-chosen-approach">🎯 Rationale for Chosen Approach</a></h2>
+<ul>
+<li><strong>Structured &amp; Parseable Logs:</strong> Enhanced operational visibility, easier integration with log aggregation solutions.</li>
+<li><strong>Detailed Tracing and Debugging:</strong> Explicit span hierarchies enable precise debugging and operational insights.</li>
+<li><strong>Clear Log Level Policy:</strong> Reduces noise and improves the clarity and signal-to-noise ratio of logs.</li>
+</ul>
+<hr />
+<h2 id="-consequences-and-trade-offs"><a class="header" href="#-consequences-and-trade-offs">🚨 Consequences and Trade-offs</a></h2>
+<ul>
+<li><strong>Complexity of Span Management:</strong> Developers must adhere strictly to span creation and lifecycle rules.</li>
+<li><strong>Log Volume and Storage:</strong> Potential for large log volumes, especially with DEBUG or TRACE enabled.</li>
+<li><strong>Operational Overhead:</strong> Requires monitoring of log volumes and retention policies to manage costs.</li>
+</ul>
+<hr />
+<h2 id="-alternatives-considered-and-dismissed"><a class="header" href="#-alternatives-considered-and-dismissed">✅ Alternatives Considered and Dismissed</a></h2>
+<ul>
+<li><strong>Unstructured Logging:</strong> Lack of parseability and reduced debugging capability.</li>
+<li><strong>Using <code>log</code> crate:</strong> Lacks structured tracing capabilities and span support of <code>tracing</code>.</li>
+<li><strong>Third-party proprietary logging tools:</strong> Reduced control and higher cost; less customization potential.</li>
+</ul>
+<hr />
+<h2 id="-implementation-recommendations"><a class="header" href="#-implementation-recommendations">📌 Implementation Recommendations:</a></h2>
+<ul>
+<li>Create a dedicated <strong>Logging Style Guide</strong> document specifying <code>tracing</code> usage patterns.</li>
+<li>Use automated linting to enforce span hierarchy and log level conventions during CI/CD pipelines.</li>
+<li>Periodically review log metrics (volume, retention, levels) to manage operational overhead.</li>
+</ul>
+<hr />
+<h2 id="-industry-leading-capabilities"><a class="header" href="#-industry-leading-capabilities">🚀 Industry-Leading Capabilities</a></h2>
+<p>This structured logging and tracing strategy significantly enhances Tiffany's ability to manage operational complexity, rapidly diagnose issues, and maintain transparency, positioning it as a leader in observability and autonomous agentic infrastructure management.</p>
+<hr />
+<h2 id="-next-steps"><a class="header" href="#-next-steps">📊 Next Steps:</a></h2>
+<p>Upon confirmation, this ADR is ready for acceptance and immediate detailed implementation.</p>
+<p>✅ <strong>Ready for final review and acceptance.</strong></p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../adr/0007-Process_Activity_log.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../adr/0007-Process_Activity_log.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../theme/mermaid.js"></script>
+
+
+    </div>
+    </body>
+</html>

@@ -1,0 +1,447 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Scheduler Component Diagrams - Mayfly System Design</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../theme/custom.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Mayfly System Design</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h3 id="diagram-d1--basic-task-switching-readyqueue-only"><a class="header" href="#diagram-d1--basic-task-switching-readyqueue-only">Diagram D1 – Basic Task Switching (ReadyQueue only)</a></h3>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant Scheduler
+    participant ReadyQueue as FIFO
+    actor TaskA
+    actor TaskB
+
+    Scheduler-&gt;&gt;ReadyQueue: dequeue TaskA
+    ReadyQueue--&gt;&gt;Scheduler: TaskA
+    Scheduler-&gt;&gt;TaskA: resume()
+    TaskA--&gt;&gt;Scheduler: yield (None)
+    Scheduler-&gt;&gt;ReadyQueue: enqueue(TaskA)
+
+    Scheduler-&gt;&gt;ReadyQueue: dequeue TaskB
+    ReadyQueue--&gt;&gt;Scheduler: TaskB
+    Scheduler-&gt;&gt;TaskB: resume()
+    TaskB--&gt;&gt;Scheduler: yield (None)
+    Scheduler-&gt;&gt;ReadyQueue: enqueue(TaskB)
+</code></pre>
+<h3 id="diagram-d2--nested-coroutines-trampolining"><a class="header" href="#diagram-d2--nested-coroutines-trampolining">Diagram D2 – Nested Coroutines (Trampolining)</a></h3>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant CallStack as CallStack_LIFO
+    actor TaskMain
+    actor SubCoro
+    
+    TaskMain--&gt;&gt;CallStack: push(TaskMain.gen)
+    TaskMain-&gt;&gt;SubCoro: start sub-coroutine
+    SubCoro--&gt;&gt;CallStack: yield value
+    CallStack-&gt;&gt;TaskMain: pop parent
+    TaskMain-&gt;&gt;TaskMain: resume with value
+</code></pre>
+<h3 id="diagram-d3--io-blocking-and-wakeup"><a class="header" href="#diagram-d3--io-blocking-and-wakeup">Diagram D3 – I/O Blocking and Wakeup</a></h3>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant Scheduler
+    participant WaitMap as EventMap
+    participant ReadyQueue
+    actor TaskIO
+    
+    TaskIO--&gt;&gt;Scheduler: yield ReadWait(fd=7)
+    Scheduler-&gt;&gt;WaitMap: record TaskIO blocked on fd=7
+    
+    Note right of WaitMap: fd=7 becomes readable
+    WaitMap-&gt;&gt;Scheduler: notify fd=7 ready
+    Scheduler-&gt;&gt;ReadyQueue: enqueue(TaskIO)
+    ReadyQueue--&gt;&gt;Scheduler: TaskIO ready to run
+</code></pre>
+<h3 id="diagram-d4--sleep-timer"><a class="header" href="#diagram-d4--sleep-timer">Diagram D4 – Sleep Timer</a></h3>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant Scheduler
+    participant WaitMap as SleepMap
+    participant ReadyQueue
+    actor TaskSleep
+    
+    TaskSleep--&gt;&gt;Scheduler: yield Sleep(3s)
+    Scheduler-&gt;&gt;WaitMap: record TaskSleep with wake_time = now + 3s
+    
+    Note right of WaitMap: 3 seconds pass
+    WaitMap-&gt;&gt;Scheduler: wake TaskSleep
+    Scheduler-&gt;&gt;ReadyQueue: enqueue(TaskSleep)
+</code></pre>
+<h3 id="diagram-d5--join--waittask"><a class="header" href="#diagram-d5--join--waittask">Diagram D5 – Join / WaitTask</a></h3>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant Scheduler
+    participant WaitMap as JoinMap
+    actor TaskA as Task_Parent
+    actor TaskB as Task_Child
+    
+    TaskA--&gt;&gt;Scheduler: yield NewTask(TaskB)
+    Scheduler-&gt;&gt;TaskA: resume with TaskB.tid
+    
+    TaskA--&gt;&gt;Scheduler: yield WaitTask(TaskB)
+    Scheduler-&gt;&gt;WaitMap: record TaskA waiting on TaskB
+    
+    Note right of TaskB: TaskB runs and completes
+    TaskB--&gt;&gt;Scheduler: StopIteration
+    Scheduler-&gt;&gt;WaitMap: notify TaskA to resume
+</code></pre>
+<h3 id="-agent-task-graph-per-agent--dag-view"><a class="header" href="#-agent-task-graph-per-agent--dag-view">✅ Agent Task Graph (Per Agent / DAG View)</a></h3>
+<p>Type: graph TD (or flowchart TD)
+Purpose: Visualize how one FAR agent's current task decomposes into subtasks, dependencies, joins, etc.</p>
+<pre><code class="language-mermaid">graph TD
+    RootTask[Plan Story Code]
+    Sub1[Setup Repo]
+    Sub2[Create main.rs]
+    Sub3[Implement main_fn]
+    Sub4[Add Tests]
+    Join[WaitTask: Finalize]
+
+    RootTask --&gt; Sub1
+    RootTask --&gt; Sub2
+    Sub2 --&gt; Sub3
+    Sub3 --&gt; Sub4
+    Sub1 --&gt; Join
+    Sub4 --&gt; Join
+
+</code></pre>
+<h3 id="-far-cluster-view-distributed-agents--scheduler"><a class="header" href="#-far-cluster-view-distributed-agents--scheduler">✅ FAR Cluster View: Distributed Agents &amp; Scheduler</a></h3>
+<p>Type: graph LR or flowchart LR
+Purpose: Show how agents across blades interact with a central orchestrator + local schedulers</p>
+<pre><code class="language-mermaid">flowchart LR
+    Orchestrator[[Central Scheduler]]
+    subgraph Blade A
+        A1[Agent 001\n - builder]
+        SchedA[Local Scheduler]
+    end
+    subgraph Blade B
+        A2[Agent 002\n - Tester]
+        SchedB[Local Scheduler]
+    end
+
+    Orchestrator --&gt; SchedA --&gt; A1
+    Orchestrator --&gt; SchedB --&gt; A2
+
+</code></pre>
+<h3 id="-skill-invocation-trace-react-aware-timeline"><a class="header" href="#-skill-invocation-trace-react-aware-timeline">✅ Skill Invocation Trace (ReAct-aware timeline)</a></h3>
+<p>Purpose: Show how a ReAct loop invokes skills with context, yields, retries, and memory access</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    actor ReActLoop
+    participant SkillManager
+    participant SkillEdit
+    participant MemoryStore
+    participant WAL
+
+    ReActLoop-&gt;&gt;SkillManager: invoke("Edit main.rs")
+    SkillManager-&gt;&gt;SkillEdit: run()
+    SkillEdit-&gt;&gt;MemoryStore: lookup(path="main.rs")
+    MemoryStore--&gt;&gt;SkillEdit: file AST
+    SkillEdit--&gt;&gt;WAL: write(PatchGenerated)
+    SkillEdit--&gt;&gt;SkillManager: return Patch
+    SkillManager--&gt;&gt;ReActLoop: Patch ready
+
+</code></pre>
+<p>✅ 11. Agent Memory Structure (Graph + Vector)</p>
+<p>Purpose: Show semantic and episodic memory layers, link to disk/durable store</p>
+<pre><code class="language-mermaid">graph TD
+  MemRoot[Memory: Agent]
+  Sem[Semantic Graph]
+  Episodic[Task Log / WAL]
+  Vectors[VectorStore - code, plans]
+GraphDB[(Neo4j)]
+VecDB[(Qdrant/Faiss)]
+
+MemRoot --&gt; Sem --&gt; GraphDB
+MemRoot --&gt; Episodic --&gt; WAL
+MemRoot --&gt; Vectors --&gt; VecDB
+</code></pre>
+<p>✅ 12. Coroutines Timeline (Concurrent Task Steps)</p>
+<p>Purpose: Show wall-clock execution of several tasks with yield/resume gaps</p>
+<pre><code class="language-mermaid">gantt
+    title Task Concurrency Timeline
+    dateFormat  HH:mm:ss
+    section Task_Main
+    run      :active, 00:00:00, 5s
+    sleep    : 00:00:05, 3s
+    resume   : 00:00:08, 4s
+    section Task_Sub
+    start    :active, 00:00:02, 3s
+    block_io : 00:00:05, 4s
+    finish   : 00:00:09, 2s
+
+</code></pre>
+<p>✅ System Call Map</p>
+<p>Purpose: Visualize all supported system calls and their dispatch targets (WAL, IO, Scheduler)</p>
+<pre><code class="language-mermaid">graph LR
+    YieldNewTask --&gt; Scheduler
+    YieldReadWait --&gt; IOSelector
+    YieldSleep --&gt; TimerWheel
+    YieldGetTid --&gt; Scheduler
+    YieldMemoryQuery --&gt; MemoryStore
+    YieldLog --&gt; PAL
+
+</code></pre>
+<p>✅ Task WAL Replayer Flow</p>
+<p>Purpose: Shows how the replay engine reconstructs a task from the WAL stream, rehydrating state and optionally stepping through each yield point.</p>
+<pre><code class="language-mermaid">flowchart TD
+    WAL[WAL Stream: task_187.log] --&gt; Parser
+    Parser --&gt; EventQueue
+    EventQueue --&gt; Scheduler
+    Scheduler --&gt; TaskReplayer
+    TaskReplayer --&gt; CallStack
+    TaskReplayer --&gt; PAL[Replay Mode: emit PAL ghost events]
+    TaskReplayer --&gt; Memory[Optional Memory Patching]
+
+    style WAL fill:#dff,stroke:#0af
+    style PAL fill:#eee,stroke:#f08
+    style Memory fill:#f9f,stroke:#808
+
+</code></pre>
+<p>✅ Panic Propagation via Wait/Join Graph</p>
+<p>Purpose: If a child task panics, show how the error might propagate to parent or dependents if not isolated.</p>
+<pre><code class="language-mermaid">graph TD
+    A[Task_Main\n - tid 101]
+    B[Task_Git\n - tid 202]
+    C[Task_Edit\n - tid 203]
+    D[Task_Tests\n - tid 204]
+
+    A --&gt;|JoinTask| B
+    A --&gt;|JoinTask| C
+    C --&gt;|JoinTask| D
+
+    D -.-&gt;|panic| C
+    C -.-&gt;|propagate panic| A
+
+    style D fill:#faa,stroke:#800
+    style C fill:#ffe,stroke:#aa0
+
+</code></pre>
+<p>✅ Bonus 3: Skill Invocation Heatmap</p>
+<p>Purpose: Visualize which system tools/skills are being used most frequently, based on PAL telemetry stream.</p>
+<pre><code class="language-mermaid">graph LR
+    Skill_Edit["📝 Edit File"]:::hot
+    Skill_Grep["🔍 Grep"]:::warm
+    Skill_Test["✅ Run Tests"]:::hot
+    Skill_Git["🌿 Git Ops"]:::warm
+    Skill_Plan["🧠 Plan/Refactor"]:::cold
+    Skill_Fmt["🧹 Format Code"]:::cold
+
+    style Skill_Edit fill:#f88,stroke:#800
+    style Skill_Test fill:#f88,stroke:#800
+    style Skill_Grep fill:#fb6,stroke:#aa0
+    style Skill_Git fill:#fb6,stroke:#aa0
+    style Skill_Plan fill:#ccf,stroke:#44f
+    style Skill_Fmt fill:#ccf,stroke:#44f
+
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../diagrams/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../adr/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../diagrams/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../adr/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../theme/mermaid.js"></script>
+
+
+    </div>
+    </body>
+</html>

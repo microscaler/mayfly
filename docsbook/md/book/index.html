@@ -3,8 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Page not found - Mayfly System Design</title>
-        <base href="/">
+        <title>Introduction - Mayfly System Design</title>
 
 
         <!-- Custom HTML head -->
@@ -168,14 +167,26 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="document-not-found-404"><a class="header" href="#document-not-found-404">Document not found (404)</a></h1>
-<p>This URL is invalid, sorry. Please use the navigation bar or search to continue.</p>
+                        <h1 id="mayfly-system-design"><a class="header" href="#mayfly-system-design">Mayfly System Design</a></h1>
+<p>Welcome to the <strong>Mayfly</strong> system design documentation: the scheduler and execution kernel for agentic runtimes.</p>
+<hr />
+<h2 id="contents"><a class="header" href="#contents">Contents</a></h2>
+<ul>
+<li><strong><a href="concepts/runtime.html">Concepts</a></strong> — Runtime model and execution concepts.</li>
+<li><strong><a href="whitepapers/Task_Scheduler.html">Whitepapers</a></strong> — Design documents and task scheduler details.</li>
+<li><strong><a href="diagrams/index.html">Diagrams</a></strong> — System diagrams and Mermaid visuals.</li>
+<li><strong><a href="adr/index.html">ADRs</a></strong> — Architecture Decision Records.</li>
+</ul>
+<p>Use the sidebar to navigate.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
 
+                            <a rel="next prefetch" href="concepts/runtime.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -184,26 +195,13 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
 
+                    <a rel="next prefetch" href="concepts/runtime.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
             </nav>
 
         </div>
 
-        <!-- Livereload script (if served using the cli tool) -->
-        <script>
-            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
-            const socket = new WebSocket(wsAddress);
-            socket.onmessage = function (event) {
-                if (event.data === "reload") {
-                    socket.close();
-                    location.reload();
-                }
-            };
-
-            window.onbeforeunload = function() {
-                socket.close();
-            }
-        </script>
 
 
 

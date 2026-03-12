@@ -1,0 +1,444 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Task Scheduler - Mayfly System Design</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../theme/custom.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Mayfly System Design</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="-1-overview-of-pyos-pyos8py"><a class="header" href="#-1-overview-of-pyos-pyos8py">📌 <strong>1. Overview of PyOS (pyos8.py)</strong></a></h2>
+<p><strong>PyOS</strong> is an educational, minimalistic micro-operating system implemented in Python using generators/coroutines to simulate concurrent tasks. The core features include:</p>
+<ul>
+<li><strong>Tasks as Generators</strong>: Each "task" is a coroutine (<code>yield</code>-based) that encapsulates some ongoing work.</li>
+<li><strong>Scheduler</strong>: A lightweight round-robin task scheduler (<code>Scheduler</code>) runs tasks until completion or yields control voluntarily.</li>
+<li><strong>System Calls (Syscall)</strong>: Tasks request OS services (sleep, wait, IO) via structured system calls.</li>
+<li><strong>Event-driven Loop</strong>: Scheduler handles tasks based on events (I/O completion, sleep duration, etc.).</li>
+</ul>
+<hr />
+<h2 id="-2-detailed-architectural-analysis-with-mermaid"><a class="header" href="#-2-detailed-architectural-analysis-with-mermaid">📂 <strong>2. Detailed Architectural Analysis (with Mermaid)</strong></a></h2>
+<p>Here's the architectural diagram of PyOS:</p>
+<pre><code class="language-mermaid">graph TD
+    Scheduler["Scheduler (Event Loop)"]
+    
+    subgraph Task Management
+        TaskQueue["Ready Task Queue"] --&gt; Scheduler
+        SleepingQueue["Sleeping Task Queue"]
+        WaitingTasks["Waiting Task Queue"]
+    end
+    
+    Task["Task (Coroutine)"] --&gt;|Syscall| Scheduler
+    Scheduler --&gt;|Resume Task| Task
+    
+    Scheduler --&gt;|Sleep Requests| SleepingQueue
+    Scheduler --&gt;|IO or Wait Requests| WaitingTasks
+    
+    Scheduler --&gt; IO["I/O Management (Select-based polling)"]
+    
+    IO --&gt; Scheduler
+    SleepingQueue --&gt; Scheduler
+    WaitingTasks --&gt; Scheduler
+</code></pre>
+<h3 id="core-components"><a class="header" href="#core-components">Core Components:</a></h3>
+<ul>
+<li><strong>Task</strong>: coroutine (<code>yield</code>) wrapped into a <code>Task</code> class. Each task maintains its own coroutine state.</li>
+<li><strong>Scheduler</strong>: event loop managing tasks.</li>
+<li><strong>Syscall</strong>: task requests (sleep, IO, etc.) handled by the scheduler.</li>
+</ul>
+<hr />
+<h2 id="-3-task-management-explained"><a class="header" href="#-3-task-management-explained">🧩 <strong>3. Task Management Explained</strong></a></h2>
+<p><strong>Tasks</strong> in PyOS are managed explicitly through a scheduler:</p>
+<pre><code class="language-python">class Task:
+    taskid = 0
+    def __init__(self, target):
+        Task.taskid += 1
+        self.tid = Task.taskid  # Unique task id
+        self.target = target    # Coroutine
+        self.sendval = None     # Value to send into coroutine
+        self.stack = []         # Call stack for nested coroutines
+</code></pre>
+<p><strong>Scheduler</strong> maintains multiple queues:</p>
+<ul>
+<li><code>ready</code>: Tasks ready to run immediately.</li>
+<li><code>sleeping</code>: Tasks scheduled to run after a delay.</li>
+<li><code>waiting</code>: Tasks blocked on I/O or other events.</li>
+</ul>
+<p>Scheduler main loop:</p>
+<pre><code class="language-python">class Scheduler:
+    def mainloop(self):
+        while self.taskmap:
+            if not self.ready:
+                self.iopoll(None)
+            else:
+                task = self.ready.popleft()
+                result = task.run()
+                self.schedule(task)
+</code></pre>
+<p>This approach provides:</p>
+<ul>
+<li><strong>Explicit task control</strong></li>
+<li><strong>Predictable execution order</strong></li>
+<li><strong>Clear state management</strong></li>
+</ul>
+<hr />
+<h2 id="-4-how-pyos-handles-system-calls"><a class="header" href="#-4-how-pyos-handles-system-calls">🚦 <strong>4. How PyOS Handles System Calls</strong></a></h2>
+<p>Tasks use <strong>Syscall</strong> to yield structured commands:</p>
+<pre><code class="language-python">class SysCall:
+    def handle(self, task, sched):
+        pass
+
+class GetTid(SysCall):
+    def handle(self, task, sched):
+        task.sendval = task.tid
+        sched.schedule(task)
+</code></pre>
+<ul>
+<li>Tasks yield <code>SysCall</code> objects.</li>
+<li>Scheduler intercepts, executes, then resumes tasks.</li>
+</ul>
+<p>Example Task using Syscall:</p>
+<pre><code class="language-python">def foo():
+    tid = yield GetTid()
+    print(f"My task id is {tid}")
+</code></pre>
+<hr />
+<h2 id="-5-relevance--value-to-tiffany-daemon"><a class="header" href="#-5-relevance--value-to-tiffany-daemon">🌟 <strong>5. Relevance &amp; Value to Tiffany Daemon</strong></a></h2>
+<p>Applying this architecture to <strong>Tiffany</strong> offers significant advantages:</p>
+<h3 id="-advantages-for-your-use-case"><a class="header" href="#-advantages-for-your-use-case">✅ <strong>Advantages for your use-case:</strong></a></h3>
+<ul>
+<li><strong>Fine-grained control</strong>: Tasks explicitly yield for system operations (like awaiting API or LLM responses).</li>
+<li><strong>Memory-efficient concurrency</strong>: Avoid overhead of threads/processes, critical for long-lived agents.</li>
+<li><strong>Traceable state transitions</strong>: Easier debugging, transparency in state and lifecycle management.</li>
+<li><strong>Predictable &amp; careful execution flow</strong>: Aligns with your "one-foot-on-the-ground" cautious approach.</li>
+</ul>
+<h3 id="-use-case-scenarios-in-tiffany"><a class="header" href="#-use-case-scenarios-in-tiffany">💡 <strong>Use Case Scenarios in Tiffany:</strong></a></h3>
+<ul>
+<li>Agent executing a complex, multi-step workflow (e.g., code edit → git commit → API call → LLM query) as separate cooperative tasks.</li>
+<li>Tasks handling different interactions (CLI vs API) concurrently yet clearly separated in the scheduler.</li>
+<li>Easier rollback and checkpointing: Each step clearly delineated by coroutine yield points.</li>
+</ul>
+<hr />
+<h2 id="-6-coroutine-considerations-in-rust"><a class="header" href="#-6-coroutine-considerations-in-rust">⚙️ <strong>6. Coroutine Considerations in Rust</strong></a></h2>
+<p>While the example uses Python generators, Rust provides advanced coroutine (async/await) models via runtimes like <code>tokio</code>, <code>async-std</code>, or coroutine libraries like <code>may</code>.</p>
+<ul>
+<li><strong>Tokio/Async</strong>:
+Standard Rust solution for async tasks and efficient I/O multiplexing.</li>
+<li><strong>May (Coroutine-focused)</strong>:
+Offers coroutine-style programming and lightweight task handling, suitable for fine-grained control.</li>
+</ul>
+<p><strong>Rust async example (with Tokio):</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn handle_task(task_id: usize) {
+    println!("Handling task {}", task_id);
+    tokio::time::sleep(Duration::from_secs(1)).await;
+}
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Rust Coroutine-style example (with May):</strong></p>
+<pre><pre class="playground"><code class="language-rust">use may::coroutine;
+
+fn main() {
+    coroutine::scope(|s| {
+        s.spawn(|| {
+            println!("Task started");
+            coroutine::sleep(Duration::from_secs(1));
+            println!("Task done");
+        });
+    });
+}</code></pre></pre>
+<hr />
+<h2 id="-7-recommended-architecture-for-tiffany"><a class="header" href="#-7-recommended-architecture-for-tiffany">🎯 <strong>7. Recommended Architecture for Tiffany</strong></a></h2>
+<p>Based on PyOS inspiration, I suggest adopting a hybrid Rust async + coroutine model:</p>
+<h3 id="-tiffany-task-scheduler-conceptual"><a class="header" href="#-tiffany-task-scheduler-conceptual">✅ <strong>Tiffany Task Scheduler (Conceptual):</strong></a></h3>
+<ul>
+<li>Define explicit task states and transitions clearly.</li>
+<li>Tasks (async or coroutine) yielding explicit commands similar to SysCall, allowing predictable scheduling and state management.</li>
+<li>A <strong>scheduler loop</strong> managing tasks explicitly, providing clear debug and auditability.</li>
+</ul>
+<p>Example of explicit Rust-based scheduler task structure:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>enum TaskCommand {
+    AwaitLLMResponse(Query),
+    AwaitFileIO(PathBuf),
+    AwaitUserApproval(String),
+}
+
+struct Task {
+    id: usize,
+    state: TaskState,
+}
+
+enum TaskState {
+    Running,
+    Waiting(TaskCommand),
+    Completed,
+}
+
+impl Scheduler {
+    async fn run(&amp;mut self) {
+        loop {
+            for task in &amp;mut self.tasks {
+                match task.state {
+                    TaskState::Waiting(ref cmd) =&gt; {
+                        match cmd {
+                            TaskCommand::AwaitLLMResponse(q) =&gt; {
+                                if let Some(resp) = self.llm.try_get_response(q).await {
+                                    task.state = TaskState::Running;
+                                }
+                            },
+                            // Handle other cases similarly
+                            _ =&gt; {}
+                        }
+                    },
+                    TaskState::Running =&gt; {
+                        // Run the task's next step
+                    },
+                    TaskState::Completed =&gt; {}
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<ul>
+<li>Tasks explicitly yield commands the scheduler handles.</li>
+<li>Matches your "one-foot-on-the-ground" operational style.</li>
+</ul>
+<hr />
+<h2 id="-8-recommended-roadmap"><a class="header" href="#-8-recommended-roadmap">🛠️ <strong>8. Recommended Roadmap</strong></a></h2>
+<ul>
+<li><strong>Prototype a simple Rust Scheduler</strong> inspired by PyOS (using async Rust).</li>
+<li><strong>Define explicit commands/tasks</strong> for Tiffany (LLM queries, API calls, filesystem ops).</li>
+<li><strong>Implement simple coroutine/task model</strong> (using tokio + explicit state machine).</li>
+</ul>
+<hr />
+<h2 id="-conclusion-and-recommendation"><a class="header" href="#-conclusion-and-recommendation">🚀 <strong>Conclusion and Recommendation</strong></a></h2>
+<p>Dave Beazley’s PyOS provides a clear and powerful task management blueprint. Its explicit task control, predictable
+scheduling, and structured system call mechanism align extremely well with your <strong>Tiffany</strong> vision.</p>
+<p>For your Rust-based daemon, adapt these ideas into a hybrid coroutine/async system, managing tasks explicitly for predictability, clarity, and debug ease.</p>
+<p>Your next steps:</p>
+<ul>
+<li>Prototype the Rust scheduler inspired by PyOS.</li>
+<li>Define Tiffany-specific tasks and state transitions.</li>
+<li>Validate with simple coroutine-style and async tasks.</li>
+</ul>
+<h2 id="references"><a class="header" href="#references">References:</a></h2>
+<ul>
+<li><a href="https://www.dabeaz.com/coroutines/">Dave Beazley’s Coroutines</a></li>
+<li><a href="https://www.dabeaz.com/coroutines/pyos8.py">Dave Beazley’s PyOS</a></li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../concepts/runtime.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../whitepapers/Design_Document_Coroutine-Based_Task_Scheduler_for_Tiffany.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../concepts/runtime.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../whitepapers/Design_Document_Coroutine-Based_Task_Scheduler_for_Tiffany.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../theme/mermaid.js"></script>
+
+
+    </div>
+    </body>
+</html>

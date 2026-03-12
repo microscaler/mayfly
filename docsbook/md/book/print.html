@@ -168,7 +168,1946 @@
 
                 <div id="content" class="content">
                     <main>
-                        
+                        <h1 id="mayfly-system-design"><a class="header" href="#mayfly-system-design">Mayfly System Design</a></h1>
+<p>Welcome to the <strong>Mayfly</strong> system design documentation: the scheduler and execution kernel for agentic runtimes.</p>
+<hr />
+<h2 id="contents"><a class="header" href="#contents">Contents</a></h2>
+<ul>
+<li><strong><a href="concepts/runtime.html">Concepts</a></strong> — Runtime model and execution concepts.</li>
+<li><strong><a href="whitepapers/Task_Scheduler.html">Whitepapers</a></strong> — Design documents and task scheduler details.</li>
+<li><strong><a href="diagrams/index.html">Diagrams</a></strong> — System diagrams and Mermaid visuals.</li>
+<li><strong><a href="adr/index.html">ADRs</a></strong> — Architecture Decision Records.</li>
+</ul>
+<p>Use the sidebar to navigate.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="tiffany-runtime-model"><a class="header" href="#tiffany-runtime-model">Tiffany Runtime Model</a></h1>
+<p>Tiffany is a coroutine-first agentic runtime built around the idea of deterministic, traceable, yield-driven execution for autonomous system tasks.</p>
+<hr />
+<h2 id="execution-model"><a class="header" href="#execution-model">Execution Model</a></h2>
+<ul>
+<li><strong>Coroutine Scheduler</strong>: Inspired by David Beazley’s <code>pyos8</code>, all tasks are cooperative generators. There are no threads, only scheduled yields.</li>
+<li><strong>System Calls</strong>: Tasks yield events like <code>ReadWait</code>, <code>Sleep</code>, or <code>SpawnTask</code> to the scheduler.</li>
+<li><strong>Trampolining</strong>: Nested coroutines are managed via a LIFO stack to support function-like composition.</li>
+<li><strong>Replayability</strong>: Tasks emit <code>WAL</code> logs with every yield, enabling complete deterministic replay.</li>
+<li><strong>Telemetry</strong>: Progress is simultaneously emitted to the <code>PAL</code> stream for real-time observability.</li>
+</ul>
+<hr />
+<h2 id="agents-and-isolation"><a class="header" href="#agents-and-isolation">Agents and Isolation</a></h2>
+<p>Each agent:</p>
+<ul>
+<li>Operates in a self-contained environment (microVM or Apple Container)</li>
+<li>Loads semantic memory (GraphDB + VectorDB)</li>
+<li>Executes plans via the ReAct loop</li>
+<li>Coordinates with orchestrator over mTLS/gRPC</li>
+</ul>
+<hr />
+<h2 id="diagrams"><a class="header" href="#diagrams">Diagrams</a></h2>
+<p>You can find system-level sequence diagrams in the <a href="concepts/../diagrams/index.html">Diagrams</a> section.</p>
+<div style="break-before: page; page-break-before: always;"></div><h2 id="-1-overview-of-pyos-pyos8py"><a class="header" href="#-1-overview-of-pyos-pyos8py">📌 <strong>1. Overview of PyOS (pyos8.py)</strong></a></h2>
+<p><strong>PyOS</strong> is an educational, minimalistic micro-operating system implemented in Python using generators/coroutines to simulate concurrent tasks. The core features include:</p>
+<ul>
+<li><strong>Tasks as Generators</strong>: Each "task" is a coroutine (<code>yield</code>-based) that encapsulates some ongoing work.</li>
+<li><strong>Scheduler</strong>: A lightweight round-robin task scheduler (<code>Scheduler</code>) runs tasks until completion or yields control voluntarily.</li>
+<li><strong>System Calls (Syscall)</strong>: Tasks request OS services (sleep, wait, IO) via structured system calls.</li>
+<li><strong>Event-driven Loop</strong>: Scheduler handles tasks based on events (I/O completion, sleep duration, etc.).</li>
+</ul>
+<hr />
+<h2 id="-2-detailed-architectural-analysis-with-mermaid"><a class="header" href="#-2-detailed-architectural-analysis-with-mermaid">📂 <strong>2. Detailed Architectural Analysis (with Mermaid)</strong></a></h2>
+<p>Here's the architectural diagram of PyOS:</p>
+<pre><code class="language-mermaid">graph TD
+    Scheduler["Scheduler (Event Loop)"]
+    
+    subgraph Task Management
+        TaskQueue["Ready Task Queue"] --&gt; Scheduler
+        SleepingQueue["Sleeping Task Queue"]
+        WaitingTasks["Waiting Task Queue"]
+    end
+    
+    Task["Task (Coroutine)"] --&gt;|Syscall| Scheduler
+    Scheduler --&gt;|Resume Task| Task
+    
+    Scheduler --&gt;|Sleep Requests| SleepingQueue
+    Scheduler --&gt;|IO or Wait Requests| WaitingTasks
+    
+    Scheduler --&gt; IO["I/O Management (Select-based polling)"]
+    
+    IO --&gt; Scheduler
+    SleepingQueue --&gt; Scheduler
+    WaitingTasks --&gt; Scheduler
+</code></pre>
+<h3 id="core-components"><a class="header" href="#core-components">Core Components:</a></h3>
+<ul>
+<li><strong>Task</strong>: coroutine (<code>yield</code>) wrapped into a <code>Task</code> class. Each task maintains its own coroutine state.</li>
+<li><strong>Scheduler</strong>: event loop managing tasks.</li>
+<li><strong>Syscall</strong>: task requests (sleep, IO, etc.) handled by the scheduler.</li>
+</ul>
+<hr />
+<h2 id="-3-task-management-explained"><a class="header" href="#-3-task-management-explained">🧩 <strong>3. Task Management Explained</strong></a></h2>
+<p><strong>Tasks</strong> in PyOS are managed explicitly through a scheduler:</p>
+<pre><code class="language-python">class Task:
+    taskid = 0
+    def __init__(self, target):
+        Task.taskid += 1
+        self.tid = Task.taskid  # Unique task id
+        self.target = target    # Coroutine
+        self.sendval = None     # Value to send into coroutine
+        self.stack = []         # Call stack for nested coroutines
+</code></pre>
+<p><strong>Scheduler</strong> maintains multiple queues:</p>
+<ul>
+<li><code>ready</code>: Tasks ready to run immediately.</li>
+<li><code>sleeping</code>: Tasks scheduled to run after a delay.</li>
+<li><code>waiting</code>: Tasks blocked on I/O or other events.</li>
+</ul>
+<p>Scheduler main loop:</p>
+<pre><code class="language-python">class Scheduler:
+    def mainloop(self):
+        while self.taskmap:
+            if not self.ready:
+                self.iopoll(None)
+            else:
+                task = self.ready.popleft()
+                result = task.run()
+                self.schedule(task)
+</code></pre>
+<p>This approach provides:</p>
+<ul>
+<li><strong>Explicit task control</strong></li>
+<li><strong>Predictable execution order</strong></li>
+<li><strong>Clear state management</strong></li>
+</ul>
+<hr />
+<h2 id="-4-how-pyos-handles-system-calls"><a class="header" href="#-4-how-pyos-handles-system-calls">🚦 <strong>4. How PyOS Handles System Calls</strong></a></h2>
+<p>Tasks use <strong>Syscall</strong> to yield structured commands:</p>
+<pre><code class="language-python">class SysCall:
+    def handle(self, task, sched):
+        pass
+
+class GetTid(SysCall):
+    def handle(self, task, sched):
+        task.sendval = task.tid
+        sched.schedule(task)
+</code></pre>
+<ul>
+<li>Tasks yield <code>SysCall</code> objects.</li>
+<li>Scheduler intercepts, executes, then resumes tasks.</li>
+</ul>
+<p>Example Task using Syscall:</p>
+<pre><code class="language-python">def foo():
+    tid = yield GetTid()
+    print(f"My task id is {tid}")
+</code></pre>
+<hr />
+<h2 id="-5-relevance--value-to-tiffany-daemon"><a class="header" href="#-5-relevance--value-to-tiffany-daemon">🌟 <strong>5. Relevance &amp; Value to Tiffany Daemon</strong></a></h2>
+<p>Applying this architecture to <strong>Tiffany</strong> offers significant advantages:</p>
+<h3 id="-advantages-for-your-use-case"><a class="header" href="#-advantages-for-your-use-case">✅ <strong>Advantages for your use-case:</strong></a></h3>
+<ul>
+<li><strong>Fine-grained control</strong>: Tasks explicitly yield for system operations (like awaiting API or LLM responses).</li>
+<li><strong>Memory-efficient concurrency</strong>: Avoid overhead of threads/processes, critical for long-lived agents.</li>
+<li><strong>Traceable state transitions</strong>: Easier debugging, transparency in state and lifecycle management.</li>
+<li><strong>Predictable &amp; careful execution flow</strong>: Aligns with your "one-foot-on-the-ground" cautious approach.</li>
+</ul>
+<h3 id="-use-case-scenarios-in-tiffany"><a class="header" href="#-use-case-scenarios-in-tiffany">💡 <strong>Use Case Scenarios in Tiffany:</strong></a></h3>
+<ul>
+<li>Agent executing a complex, multi-step workflow (e.g., code edit → git commit → API call → LLM query) as separate cooperative tasks.</li>
+<li>Tasks handling different interactions (CLI vs API) concurrently yet clearly separated in the scheduler.</li>
+<li>Easier rollback and checkpointing: Each step clearly delineated by coroutine yield points.</li>
+</ul>
+<hr />
+<h2 id="-6-coroutine-considerations-in-rust"><a class="header" href="#-6-coroutine-considerations-in-rust">⚙️ <strong>6. Coroutine Considerations in Rust</strong></a></h2>
+<p>While the example uses Python generators, Rust provides advanced coroutine (async/await) models via runtimes like <code>tokio</code>, <code>async-std</code>, or coroutine libraries like <code>may</code>.</p>
+<ul>
+<li><strong>Tokio/Async</strong>:
+Standard Rust solution for async tasks and efficient I/O multiplexing.</li>
+<li><strong>May (Coroutine-focused)</strong>:
+Offers coroutine-style programming and lightweight task handling, suitable for fine-grained control.</li>
+</ul>
+<p><strong>Rust async example (with Tokio):</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn handle_task(task_id: usize) {
+    println!("Handling task {}", task_id);
+    tokio::time::sleep(Duration::from_secs(1)).await;
+}
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Rust Coroutine-style example (with May):</strong></p>
+<pre><pre class="playground"><code class="language-rust">use may::coroutine;
+
+fn main() {
+    coroutine::scope(|s| {
+        s.spawn(|| {
+            println!("Task started");
+            coroutine::sleep(Duration::from_secs(1));
+            println!("Task done");
+        });
+    });
+}</code></pre></pre>
+<hr />
+<h2 id="-7-recommended-architecture-for-tiffany"><a class="header" href="#-7-recommended-architecture-for-tiffany">🎯 <strong>7. Recommended Architecture for Tiffany</strong></a></h2>
+<p>Based on PyOS inspiration, I suggest adopting a hybrid Rust async + coroutine model:</p>
+<h3 id="-tiffany-task-scheduler-conceptual"><a class="header" href="#-tiffany-task-scheduler-conceptual">✅ <strong>Tiffany Task Scheduler (Conceptual):</strong></a></h3>
+<ul>
+<li>Define explicit task states and transitions clearly.</li>
+<li>Tasks (async or coroutine) yielding explicit commands similar to SysCall, allowing predictable scheduling and state management.</li>
+<li>A <strong>scheduler loop</strong> managing tasks explicitly, providing clear debug and auditability.</li>
+</ul>
+<p>Example of explicit Rust-based scheduler task structure:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>enum TaskCommand {
+    AwaitLLMResponse(Query),
+    AwaitFileIO(PathBuf),
+    AwaitUserApproval(String),
+}
+
+struct Task {
+    id: usize,
+    state: TaskState,
+}
+
+enum TaskState {
+    Running,
+    Waiting(TaskCommand),
+    Completed,
+}
+
+impl Scheduler {
+    async fn run(&amp;mut self) {
+        loop {
+            for task in &amp;mut self.tasks {
+                match task.state {
+                    TaskState::Waiting(ref cmd) =&gt; {
+                        match cmd {
+                            TaskCommand::AwaitLLMResponse(q) =&gt; {
+                                if let Some(resp) = self.llm.try_get_response(q).await {
+                                    task.state = TaskState::Running;
+                                }
+                            },
+                            // Handle other cases similarly
+                            _ =&gt; {}
+                        }
+                    },
+                    TaskState::Running =&gt; {
+                        // Run the task's next step
+                    },
+                    TaskState::Completed =&gt; {}
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<ul>
+<li>Tasks explicitly yield commands the scheduler handles.</li>
+<li>Matches your "one-foot-on-the-ground" operational style.</li>
+</ul>
+<hr />
+<h2 id="-8-recommended-roadmap"><a class="header" href="#-8-recommended-roadmap">🛠️ <strong>8. Recommended Roadmap</strong></a></h2>
+<ul>
+<li><strong>Prototype a simple Rust Scheduler</strong> inspired by PyOS (using async Rust).</li>
+<li><strong>Define explicit commands/tasks</strong> for Tiffany (LLM queries, API calls, filesystem ops).</li>
+<li><strong>Implement simple coroutine/task model</strong> (using tokio + explicit state machine).</li>
+</ul>
+<hr />
+<h2 id="-conclusion-and-recommendation"><a class="header" href="#-conclusion-and-recommendation">🚀 <strong>Conclusion and Recommendation</strong></a></h2>
+<p>Dave Beazley’s PyOS provides a clear and powerful task management blueprint. Its explicit task control, predictable
+scheduling, and structured system call mechanism align extremely well with your <strong>Tiffany</strong> vision.</p>
+<p>For your Rust-based daemon, adapt these ideas into a hybrid coroutine/async system, managing tasks explicitly for predictability, clarity, and debug ease.</p>
+<p>Your next steps:</p>
+<ul>
+<li>Prototype the Rust scheduler inspired by PyOS.</li>
+<li>Define Tiffany-specific tasks and state transitions.</li>
+<li>Validate with simple coroutine-style and async tasks.</li>
+</ul>
+<h2 id="references"><a class="header" href="#references">References:</a></h2>
+<ul>
+<li><a href="https://www.dabeaz.com/coroutines/">Dave Beazley’s Coroutines</a></li>
+<li><a href="https://www.dabeaz.com/coroutines/pyos8.py">Dave Beazley’s PyOS</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="design-document-coroutine-based-task-scheduler-for-tiffany"><a class="header" href="#design-document-coroutine-based-task-scheduler-for-tiffany">Design Document: Coroutine-Based Task Scheduler for Tiffany</a></h1>
+<h2 id="introduction-and-background"><a class="header" href="#introduction-and-background">Introduction and Background</a></h2>
+<p>Tiffany requires a lightweight <strong>cooperative multitasking</strong> runtime to manage concurrent tasks without the complexity of threads or processes. We will build a coroutine-based task scheduler inspired by prior art in Python and other systems. <strong>Coroutines</strong> are program components that generalize subroutines for non-preemptive multitasking: they allow a function to suspend execution (<code>yield</code>) and resume later, which is ideal for implementing our own scheduler. By using coroutines, we can explicitly control when tasks give up control (cooperative scheduling) and integrate asynchronous I/O handling directly into the runtime. This approach was popularized in David Beazley’s 2009 PyCon tutorial "A Curious Course on Coroutines and Concurrency," where he constructed a simple “Python Operating System” (PYOS) using generator-based coroutines. Modern frameworks like Python’s <code>asyncio</code> build on similar concepts (an event loop, tasks, and awaiting I/O), but for Tiffany we will design a <strong>minimal scheduler</strong> focused on our specific needs rather than a full general-purpose OS or framework.</p>
+<h3 id="prior-art-and-influences"><a class="header" href="#prior-art-and-influences">Prior Art and Influences</a></h3>
+<p><strong>David Beazley’s PYOS</strong>: Beazley’s example (known through code like <code>pyos.py</code> series) is a key reference. In his design, a central <strong>Scheduler</strong> manages a queue of tasks, each task being a coroutine wrapped in a lightweight <strong>Task</strong> object. Tasks voluntarily yield control, either simply to let others run or to request a “system call” (an operation for the scheduler to perform on behalf of the task). The scheduler loop repeatedly takes the next ready task, runs it until its next <code>yield</code>, and then decides what to do based on the yielded value (resume the task, create new tasks, wait for I/O, etc.). This cooperative model avoids preemptive context switches and threads, making it lightweight and deterministic. Beazley’s system introduced <strong>system call objects</strong> like <code>GetTid</code>, <code>NewTask</code>, <code>WaitTask</code>, <code>ReadWait</code>, etc., which tasks could yield to request scheduler actions. For example, a task could do <code>yield NewTask(some_coro)</code> to spawn a new coroutine task, or <code>yield ReadWait(file_obj)</code> to signal the scheduler to pause the task until a file descriptor is readable. His final iteration also solved the issue of calling coroutines from within coroutines (nested yields) via a technique called <strong>trampolining</strong>, which we’ll discuss shortly.</p>
+<p><strong>Async IO frameworks</strong>: Python’s <code>asyncio</code> (PEP 3156) and similar event-loop systems were motivated by the same goal of handling many tasks with one thread by <strong>async/await</strong> syntax. They formalize coroutines as first-class objects (native <code>async def</code> coroutines in Python 3) and use an event loop to schedule their execution. Our design will conceptually resemble a simplified asyncio: we’ll have an event loop (the scheduler), tasks (coroutine functions), and awaitable events (our system call yields). However, we will implement just what we need for Tiffany rather than a full library. This means focusing on <strong>cooperative scheduling and I/O readiness</strong>, and possibly timed delays, without the overhead of unrelated features.</p>
+<p><strong>Coroutines in Rust</strong>: An alternative to a Python implementation is using Rust, which by its 2021 edition (and likely 2024 edition improvements) supports async/await for concurrency. Rust’s model is different under the hood – it uses <em>futures</em> and an executor. Each <code>async fn</code> in Rust compiles to a state-machine that implements the <code>Future</code> trait. An executor (runtime) polls these futures and uses a <strong>waker</strong> mechanism to resume tasks when events (like I/O) are ready. While Rust’s approach is efficient and memory-safe, implementing a custom coroutine scheduler in Rust is more involved than in Python. There is no stable native “yield” for synchronous coroutines in Rust yet (generators are an unstable feature), so one would typically build on the async/await system (futures). In our context, a Rust implementation might involve spawning tasks as futures and using an event loop (like <code>tokio</code> or a custom one) to drive them. This is certainly feasible and would give performance and safety benefits, but it means embracing Rust’s asynchronous programming model (polling futures) rather than the simpler generator interface that Python offers. We will discuss the trade-offs in a later section. For now, we draw inspiration from the Python model (which is easier to prototype) while keeping in mind that the design concepts (task, scheduler, event waiting) are transferable to Rust or other environments.</p>
+<h2 id="requirements-and-scope-for-tiffany"><a class="header" href="#requirements-and-scope-for-tiffany">Requirements and Scope for Tiffany</a></h2>
+<p>Tiffany’s scheduler should support <strong>concurrent tasks with minimal overhead</strong>, focusing on our use cases. We are not building a general OS with process isolation or preemptive multitasking. Instead, the requirements are:</p>
+<ul>
+<li>
+<p><strong>Cooperative Multitasking:</strong> Tasks yield control explicitly at well-defined points (e.g. when they need to wait or simply to let others run). This avoids complex context switching – the scheduler will only switch tasks when a task yields. Each task runs to its next yield without interruption. This is sufficient for many I/O-bound or event-driven workloads and simpler to implement than preemptive scheduling. It does mean a badly-behaved task that never yields could block others, so we must ensure our tasks are written to yield periodically (especially during long computations or loops).</p>
+</li>
+<li>
+<p><strong>Task Management:</strong> Ability to create (spawn) new tasks dynamically. For example, when a network connection comes in, the scheduler can spawn a new task to handle that connection while the main task continues listening. We might also want the ability to terminate tasks or have tasks wait for others to finish, though these are secondary if our use-case can manage without explicit task joining or killing. (If needed, we can implement a <code>WaitTask</code> system call to allow one task to yield until another task completes, and possibly a <code>KillTask</code> to remove a task, similar to Beazley’s design.) At minimum, <strong>spawning tasks</strong> is required.</p>
+</li>
+<li>
+<p><strong>I/O and Event Waiting:</strong> A mechanism to integrate non-blocking I/O. Tasks should be able to wait for external events (file descriptors being readable/writable, timers, etc.) without blocking the whole program. In a typical scenario, a task waiting for network data will yield an event to the scheduler (e.g. “read wait on this socket”). The scheduler can then <strong>pause that task</strong> and continue running others. Under the hood, the scheduler will use an OS primitive (like <code>select</code> or <code>poll</code>) to check when the socket is ready, and then resume the task. This means our scheduler likely needs to maintain a registry of file descriptors (or other event sources) to tasks waiting on them. Beazley’s example uses <code>select.select</code> on sets of descriptors, which is a straightforward approach we can use as well (since Tiffany might be running in an environment where <code>select</code>/<code>poll</code> is available). If Tiffany’s needs include timers (sleeping for X seconds), we could implement a similar mechanism with timeouts: tasks yield a “sleep until time T” event, and the scheduler keeps track of that, resuming the task after the timeout.</p>
+</li>
+<li>
+<p><strong>Efficiency and Simplicity:</strong> Keep the core loop simple and avoid unnecessary features. We don’t need memory protection, true parallelism, or complex prioritization – all tasks run in the same thread and share memory (like async functions do). Context switching is just a function call (resuming a generator), which is very cheap. We will not implement advanced scheduling policies; a simple round-robin or FIFO scheduling of ready tasks is sufficient. Also, error handling can be basic: if a task raises an uncaught exception (aside from the <code>StopIteration</code> that signals a generator’s normal completion), it could terminate that task – the scheduler can catch exceptions from <code>task.run()</code> and decide to drop the task or log it. In a robust system we’d have to propagate errors or allow tasks to handle others’ failures, but for now a simple strategy (like printing error and removing the task) is acceptable.</p>
+</li>
+<li>
+<p><strong>Trampolining (Nested Coroutines):</strong> As an <em>optional</em> but highly useful feature, we want tasks to be able to call coroutine-based subroutines without losing the ability to yield. In a naive generator scheduler, if one generator calls another that uses <code>yield</code>, things get tricky – only the top-level generator’s yields are noticed by the scheduler. David Beazley’s <strong>trampolining</strong> solution was to have the <code>Task</code> object manage an explicit <strong>stack</strong> of generators. Whenever a running coroutine yields another <em>generator</em>, the scheduler <strong>does not</strong> treat it as a final yield; instead, the current task pushes its current generator onto a stack and continues executing the yielded sub-generator. This way, the task can <strong>dive into</strong> nested coroutines and when the sub-coroutine completes or yields a value back, the task pops the stack and resumes the caller. Trampolining is crucial for code modularity – it allows writing coroutine helpers (e.g. an <code>Accept(sock)</code> coroutine that itself yields events) and calling them naturally with <code>result = yield Accept(sock)</code> inside a task. We will include trampolining in our design so that tasks can be structured hierarchically without the scheduler needing special logic for it (the Task object will handle it, making it <em>transparent to the scheduler</em>).</p>
+</li>
+<li>
+<p><strong>Focus on Tiffany’s domain:</strong> If Tiffany is, for example, a provisioning system or similar, typical tasks might include networking (listening for requests, handling connections), file I/O, or invoking system commands. We anticipate heavy use of network/socket I/O which fits well with this async approach. We likely do not need features like CPU-bound parallelism (which would need threads or multiple processes) – cooperative coroutines handle concurrency when tasks are I/O-bound or need to wait. As long as one task is waiting on I/O or an event, another can run. If all tasks are waiting (idle), the scheduler can block on <code>select</code> until something happens, using minimal CPU.</p>
+</li>
+</ul>
+<h2 id="architecture-overview"><a class="header" href="#architecture-overview">Architecture Overview</a></h2>
+<p>Our coroutine runtime will consist of a few core components: <strong>Task</strong>, <strong>Scheduler</strong>, and a set of <strong>System Call events</strong> that tasks can yield to trigger special behavior. Additionally, we have the notion of the <strong>call stack</strong> within a Task for trampolining nested coroutines. Below we detail each component and how they interact.</p>
+<h4 id="-enhanced-sequence-diagram-tiffany-coroutine-scheduler-expanded"><a class="header" href="#-enhanced-sequence-diagram-tiffany-coroutine-scheduler-expanded">🧬 Enhanced Sequence Diagram: Tiffany Coroutine Scheduler (Expanded)</a></h4>
+<pre><code class="language-mermaid">sequenceDiagram
+  actor MainTask as Task_Main (Planning)
+  actor WorkerTask as Task_Worker (LLM Plan)
+  actor ToolTask as Task_Tool (IO Tool)
+  participant Scheduler
+  participant ReadyQueue as ReadyQueue_FIFO
+  participant CallStack_Main as CallStack_Main (LIFO)
+  participant CallStack_Worker as CallStack_Worker (LIFO)
+  participant WaitMap as EventMap (IO/Sleep/Join)
+
+%% === Startup ===
+  MainTask-&gt;&gt;Scheduler: yield NewTask(WorkerTask)
+  Scheduler-&gt;&gt;ReadyQueue: enqueue(WorkerTask)
+  Scheduler-&gt;&gt;MainTask: resume with WorkerTask.tid
+
+%% === MainTask continues planning ===
+  MainTask--&gt;&gt;Scheduler: yield Sleep(5s)
+  Scheduler-&gt;&gt;WaitMap: record MainTask sleep
+  Note right of WaitMap: MainTask sleeping until t + 5s
+
+%% === WorkerTask starts execution ===
+  Scheduler-&gt;&gt;ReadyQueue: dequeue next
+  ReadyQueue--&gt;&gt;Scheduler: WorkerTask
+  Scheduler-&gt;&gt;WorkerTask: resume()
+
+  WorkerTask--&gt;&gt;Scheduler: yield NewTask(ToolTask)
+  Scheduler-&gt;&gt;ReadyQueue: enqueue(ToolTask)
+  Scheduler-&gt;&gt;WorkerTask: resume with ToolTask.tid
+
+%% === ToolTask nested sub-coroutine call
+  WorkerTask--&gt;&gt;CallStack_Worker: push generator
+  CallStack_Worker-&gt;&gt;WorkerTask: switch to ToolTask coroutine
+  Scheduler-&gt;&gt;WorkerTask: continue (trampolining)
+
+%% === ToolTask yields ReadWait
+  ToolTask--&gt;&gt;Scheduler: yield ReadWait(fd=4)
+  Scheduler-&gt;&gt;WaitMap: register fd=4 for ToolTask
+  Note right of WaitMap: ToolTask blocked waiting on I/O
+
+%% === I/O becomes ready
+  Note right of WaitMap: fd=4 becomes readable
+  WaitMap-&gt;&gt;Scheduler: notify ToolTask
+  Scheduler-&gt;&gt;ReadyQueue: enqueue(ToolTask)
+
+%% === ToolTask completes
+  Scheduler-&gt;&gt;ReadyQueue: dequeue ToolTask
+  ReadyQueue--&gt;&gt;Scheduler: ToolTask
+  Scheduler-&gt;&gt;ToolTask: resume()
+
+  ToolTask--&gt;&gt;CallStack_Worker: return result
+  CallStack_Worker-&gt;&gt;WorkerTask: resume with result
+
+%% === WorkerTask finishes work
+  WorkerTask--&gt;&gt;Scheduler: StopIteration
+  Scheduler-&gt;&gt;WaitMap: resolve joiners on WorkerTask
+
+%% === MainTask wakes up
+  Note right of WaitMap: Timer expires for MainTask
+  WaitMap-&gt;&gt;Scheduler: wake MainTask
+  Scheduler-&gt;&gt;ReadyQueue: enqueue(MainTask)
+
+%% === Final Resumption
+  Scheduler-&gt;&gt;ReadyQueue: dequeue MainTask
+  ReadyQueue--&gt;&gt;Scheduler: MainTask
+  Scheduler-&gt;&gt;MainTask: resume()
+  MainTask--&gt;&gt;Scheduler: continue next step
+
+</code></pre>
+<p>🧠 Key Concepts Represented:</p>
+<ul>
+<li>Scheduler is the event orchestrator</li>
+<li>Tasks are coroutine-based units of execution</li>
+<li>ReadyQueue (FIFO) holds ready-to-run tasks</li>
+<li>CallStack (LIFO) enables trampolining between nested coroutine calls</li>
+<li>EventMap (join waits, I/O readiness) manages blocked tasks waiting for conditions to be fulfilled</li>
+<li>SystemCall yields are managed through handle() logic per syscall (not shown inline here for brevity)</li>
+<li>Task completion includes reactivating any tasks waiting on the completed task (e.g. via WaitTask)</li>
+<li>Trampolining logic handles yield sub_coro and propagates results back via stack unwind</li>
+</ul>
+<h4 id="-component-focused-diagrams-plan"><a class="header" href="#-component-focused-diagrams-plan">🧩 Component-Focused Diagrams Plan</a></h4>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Diagram #</th><th>Focus Area</th><th>Purpose</th></tr></thead><tbody>
+<tr><td style="text-align: right"><strong>D1</strong></td><td>📦 <strong>Basic Scheduler &amp; Task Yield</strong></td><td>Round-robin task switching using FIFO ReadyQueue</td></tr>
+<tr><td style="text-align: right"><strong>D2</strong></td><td>🪜 <strong>Nested Coroutines (Trampolining)</strong></td><td>How <code>yield SubCoro()</code> pushes/pops the CallStack per task</td></tr>
+<tr><td style="text-align: right"><strong>D3</strong></td><td>🔌 <strong>I/O Blocking &amp; Wakeup</strong></td><td>Task yields <code>ReadWait</code>, blocks on <code>fd</code>, gets resumed on readiness</td></tr>
+<tr><td style="text-align: right"><strong>D4</strong></td><td>⏲️ <strong>Sleep and Timer Handling</strong></td><td>Task yields <code>Sleep(duration)</code> and wakes later</td></tr>
+<tr><td style="text-align: right"><strong>D5</strong></td><td>🔁 <strong>Join / WaitTask Resolution</strong></td><td>Task B waits for Task A to finish and is resumed when Task A completes</td></tr>
+</tbody></table>
+</div>
+<h4 id="diagram-d1--basic-task-switching-readyqueue-only"><a class="header" href="#diagram-d1--basic-task-switching-readyqueue-only">Diagram D1 – Basic Task Switching (ReadyQueue only)</a></h4>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant Scheduler
+    participant ReadyQueue as FIFO
+    actor TaskA
+    actor TaskB
+
+    Scheduler-&gt;&gt;ReadyQueue: dequeue TaskA
+    ReadyQueue--&gt;&gt;Scheduler: TaskA
+    Scheduler-&gt;&gt;TaskA: resume()
+    TaskA--&gt;&gt;Scheduler: yield (None)
+    Scheduler-&gt;&gt;ReadyQueue: enqueue(TaskA)
+
+    Scheduler-&gt;&gt;ReadyQueue: dequeue TaskB
+    ReadyQueue--&gt;&gt;Scheduler: TaskB
+    Scheduler-&gt;&gt;TaskB: resume()
+    TaskB--&gt;&gt;Scheduler: yield (None)
+    Scheduler-&gt;&gt;ReadyQueue: enqueue(TaskB)
+
+</code></pre>
+<h4 id="diagram-d2--nested-coroutines-trampolining"><a class="header" href="#diagram-d2--nested-coroutines-trampolining">Diagram D2 – Nested Coroutines (Trampolining)</a></h4>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant CallStack as CallStack_LIFO
+    actor TaskMain
+    actor SubCoro
+
+    TaskMain--&gt;&gt;CallStack: push(TaskMain.gen)
+    TaskMain-&gt;&gt;SubCoro: start sub-coroutine
+    SubCoro--&gt;&gt;CallStack: yield value
+    CallStack-&gt;&gt;TaskMain: pop parent
+    TaskMain-&gt;&gt;TaskMain: resume with value
+
+</code></pre>
+<h4 id="diagram-d3--io-blocking-and-wakeup"><a class="header" href="#diagram-d3--io-blocking-and-wakeup">Diagram D3 – I/O Blocking and Wakeup</a></h4>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant Scheduler
+    participant WaitMap as EventMap
+    participant ReadyQueue
+    actor TaskIO
+
+    TaskIO--&gt;&gt;Scheduler: yield ReadWait(fd=7)
+    Scheduler-&gt;&gt;WaitMap: record TaskIO blocked on fd=7
+
+    Note right of WaitMap: fd=7 becomes readable
+    WaitMap-&gt;&gt;Scheduler: notify fd=7 ready
+    Scheduler-&gt;&gt;ReadyQueue: enqueue(TaskIO)
+    ReadyQueue--&gt;&gt;Scheduler: TaskIO ready to run
+
+</code></pre>
+<h4 id="diagram-d4--sleep-and-timer-handling"><a class="header" href="#diagram-d4--sleep-and-timer-handling">Diagram D4 – Sleep and Timer Handling</a></h4>
+<pre><code class="language-mermaid">sequenceDiagram
+  participant Scheduler
+  participant WaitMap as SleepMap
+  participant ReadyQueue
+  actor TaskSleep
+
+  TaskSleep--&gt;&gt;Scheduler: yield Sleep(3s)
+  Scheduler-&gt;&gt;WaitMap: record TaskSleep with wake_time = now + 3s
+
+  Note right of WaitMap: 3 seconds pass
+  WaitMap-&gt;&gt;Scheduler: wake TaskSleep
+  Scheduler-&gt;&gt;ReadyQueue: enqueue(TaskSleep)
+</code></pre>
+<h3 id="diagram-d5--join--waittask-resolution"><a class="header" href="#diagram-d5--join--waittask-resolution">Diagram D5 – Join / WaitTask Resolution</a></h3>
+<pre><code class="language-mermaid">sequenceDiagram
+  participant Scheduler
+  participant ReadyQueue as FIFO
+  actor TaskA
+  actor TaskB
+
+  Scheduler-&gt;&gt;ReadyQueue: dequeue TaskA
+  ReadyQueue--&gt;&gt;Scheduler: TaskA
+  Scheduler-&gt;&gt;TaskA: resume()
+  TaskA--&gt;&gt;Scheduler: yield (None)
+  Scheduler-&gt;&gt;ReadyQueue: enqueue(TaskA)
+
+  Scheduler-&gt;&gt;ReadyQueue: dequeue TaskB
+  ReadyQueue--&gt;&gt;Scheduler: TaskB
+  Scheduler-&gt;&gt;TaskB: resume()
+  TaskB--&gt;&gt;Scheduler: yield (None)
+  Scheduler-&gt;&gt;ReadyQueue: enqueue(TaskB)
+</code></pre>
+<h3 id="state-machine-diagram-task-lifecycle"><a class="header" href="#state-machine-diagram-task-lifecycle">State Machine Diagram: Task Lifecycle</a></h3>
+<p>Purpose: Shows all valid transitions for a task (created → ready → running → blocked → complete).</p>
+<p>Helps with: Understanding task states, debugging transitions, implementing lifecycle hooks.</p>
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; Created
+    Created --&gt; Ready : schedule()
+    Ready --&gt; Running : run()
+    Running --&gt; Ready : yield (cooperative)
+    Running --&gt; Blocked_IO : yield ReadWait/WriteWait
+    Running --&gt; Blocked_Sleep : yield Sleep
+    Running --&gt; Blocked_Join : yield WaitTask
+    Blocked_IO --&gt; Ready : fd becomes ready
+    Blocked_Sleep --&gt; Ready : timer expires
+    Blocked_Join --&gt; Ready : waited task completes
+    Running --&gt; Complete : StopIteration
+
+</code></pre>
+<h3 id="class-diagram-scheduler-components"><a class="header" href="#class-diagram-scheduler-components">Class Diagram: Scheduler Components</a></h3>
+<p>Purpose: Depicts the structure of Scheduler, Task, SystemCall, ReadyQueue, etc.</p>
+<p>Helps with: Implementation planning, unit test coverage, codebase modularity.</p>
+<pre><code class="language-mermaid">classDiagram
+    class Scheduler {
+        +mainloop()
+        +schedule(Task)
+        +add_new_task(coro)
+        -ready_queue : Queue
+        -waiting_fds : Map
+        -waiting_tasks : Map
+    }
+
+    class Task {
+        +run()
+        -tid : int
+        -target : Generator
+        -stack : LIFO
+        -sendval : any
+    }
+
+    class SystemCall {
+        +handle()
+    }
+
+    class ReadyQueue {
+        +enqueue(Task)
+        +dequeue() Task
+    }
+
+    Scheduler --&gt; Task
+    Task --&gt; SystemCall
+    Scheduler --&gt; ReadyQueue
+
+</code></pre>
+<h3 id="fault-handling--panic-recovery"><a class="header" href="#fault-handling--panic-recovery">Fault Handling &amp; Panic Recovery</a></h3>
+<p>This diagram shows what happens when a task panics (e.g. raises an exception or hits StopIteration unexpectedly), and how the scheduler logs, cleans up, and optionally notifies dependent systems via the PAL and WAL.</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    actor FaultyTask as Task_Foo
+    participant Scheduler
+    participant Logger
+    participant PAL as ProcessActivityLog
+    participant WAL as WriteAheadLog
+    participant WaitMap as JoinMap
+
+    Scheduler-&gt;&gt;FaultyTask: run()
+    FaultyTask--&gt;&gt;Scheduler: panic (Exception or StopIteration)
+
+    alt Exception (unexpected)
+        Scheduler-&gt;&gt;Logger: log(Task_Foo crashed: {error})
+        Scheduler-&gt;&gt;PAL: record TaskFailure(Task_Foo, stacktrace)
+        Scheduler-&gt;&gt;WAL: write TaskAbort(Task_Foo)
+        Scheduler-&gt;&gt;WaitMap: notify any joiners
+        Scheduler--&gt;&gt;FaultyTask: deallocate &amp; remove from registry
+    else Normal Completion (StopIteration)
+        Scheduler-&gt;&gt;PAL: record TaskComplete(Task_Foo)
+        Scheduler-&gt;&gt;WAL: write TaskExit(Task_Foo)
+        Scheduler-&gt;&gt;WaitMap: notify any joiners
+        Scheduler--&gt;&gt;FaultyTask: remove
+    end
+
+</code></pre>
+<p>🧠 Interpretation</p>
+<ul>
+<li>Exceptions and normal StopIteration are handled differently, but both trigger:
+<ul>
+<li>Log/record in PAL (for real-time dashboards)</li>
+<li>Append to WAL (for deterministic replay)</li>
+<li>Notify any other tasks waiting on the failed/completed one</li>
+</ul>
+</li>
+<li>This can be extended later to retry policies, fallbacks, or alert hooks (e.g., webhook to notify UI agent).</li>
+</ul>
+<h3 id="data-flow-task-execution--walpal-logging"><a class="header" href="#data-flow-task-execution--walpal-logging">Data Flow: Task Execution + WAL/PAL Logging</a></h3>
+<p>This shows how data produced during task execution (including yielded values, system calls, and final results) is recorded into:</p>
+<ul>
+<li>WAL (Write-Ahead Log): durable event stream for recovery/replay</li>
+<li>PAL (Process Activity Log): ephemeral, streaming trace for dashboards</li>
+<li>MemoryStore: optional semantic graph / state mutation</li>
+</ul>
+<p>Purpose: Shows how yield/return data from tasks is recorded and logged into the system.</p>
+<ul>
+<li>WAL = Write-Ahead Log</li>
+<li>PAL = Process Activity Log</li>
+</ul>
+<p>This is helpful for:</p>
+<ul>
+<li>Task recovery</li>
+<li>Auditing</li>
+<li>Live dashboards</li>
+</ul>
+<pre><code class="language-mermaid">flowchart TD
+    A[Task: Coroutine Execution] --&gt; B1[Yield SystemCall or Result]
+    B1 --&gt; C1[Scheduler Dispatch]
+
+    %% WAL Logging
+    C1 --&gt; D1[WAL: write - Event]
+    D1 --&gt; E1[Disk / WAL File]
+
+    %% PAL Logging
+    C1 --&gt; D2[PAL: stream -TaskProgress]
+    D2 --&gt; E2[PubSub Bus / Dashboard Feed]
+
+    %% If Memory Update
+    C1 --&gt;|Memory-related yield| F1[MemoryStore Update]
+    F1 --&gt; G1[GraphDB or VecDB]
+
+    %% Loop continuation
+    C1 --&gt; H1[Requeue Task or Terminate]
+
+    style E1 fill:#dff,stroke:#0af
+    style E2 fill:#ffd,stroke:#fa0
+    style G1 fill:#f9f,stroke:#c0f
+
+</code></pre>
+<p>🧠 Interpretation
+Every execution result passes through the Scheduler, which:</p>
+<ul>
+<li>Logs to WAL for recovery (e.g. TaskYielded, TaskWaitIO(fd=4))</li>
+<li>Streams to PAL for dashboards (e.g. TaskStep with step label)</li>
+<li>Optionally updates MemoryStore (e.g. a new semantic link or skill)</li>
+<li>WAL is append-only, immutable</li>
+<li>PAL is transient (but real-time)</li>
+<li>MemoryStore is stateful, must be synchronized with execution semantics</li>
+</ul>
+<p>🧠 Summary: Which to prioritize?</p>
+<div class="table-wrapper"><table><thead><tr><th>Diagram</th><th>Priority</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>✅ Task Lifecycle (State)</td><td>⭐⭐⭐⭐</td><td>Debugging, correctness, onboarding</td></tr>
+<tr><td>✅ Scheduler Class Overview</td><td>⭐⭐⭐⭐</td><td>Code structuring and test scaffolds</td></tr>
+<tr><td>✅ Fault Handling Sequence</td><td>⭐⭐⭐</td><td>Observability, stability</td></tr>
+<tr><td>✅ PAL/WAL Data Flow</td><td>⭐⭐⭐</td><td>Logging, traceability, dashboards</td></tr>
+<tr><td>✅ SystemCall Dependency Graph</td><td>⭐⭐</td><td>Extending runtime with new features</td></tr>
+</tbody></table>
+</div>
+<h3 id="task"><a class="header" href="#task">Task</a></h3>
+<p>A <strong>Task</strong> represents a running coroutine (generator). It encapsulates the coroutine and its state, including anything needed to resume it. In our design, a Task will have:</p>
+<ul>
+<li><code>tid</code> – a task identifier (unique per task). This can simply be an integer assigned in sequence for debugging or referencing tasks.</li>
+<li><code>target</code> – the <strong>current generator</strong> that the task is running. Initially this is the coroutine function’s generator object. Due to trampolining, this <code>target</code> may change to a sub-generator if the coroutine calls another coroutine (we maintain a stack of generators, see below).</li>
+<li><code>stack</code> – a list (stack) of generator objects, initially empty. This is used for trampolining: whenever the task yields a generator (a sub-coroutine), we push the current <code>target</code> onto <code>stack</code> and start running the sub-generator as the new <code>target</code>. When a generator finishes, we pop from the stack to resume the caller.</li>
+<li><code>sendval</code> – a value to send into the coroutine on next resume. This is how we deliver data or signals to the coroutine. For example, when a task yields an event and the scheduler processes it, the scheduler might set <code>sendval</code> for when the task resumes (e.g., the result of a system call). Initially, when a task is first started, <code>sendval</code> is <code>None</code> (since we have to send <code>None</code> or call <code>next()</code> to start a generator).</li>
+</ul>
+<p>The Task object will have a method like <code>run()</code> which essentially advances the coroutine to its next yield point. Pseudocode for <code>Task.run</code> might be:</p>
+<pre><code class="language-python">class Task:
+    def run(self):
+        try:
+            result = self.target.send(self.sendval)   # Resume coroutine, send value
+        except StopIteration:
+            # Coroutine finished
+            if self.stack:
+                # If there is a calling generator waiting, resume it
+                self.sendval = None
+                self.target = self.stack.pop()
+                return None  # indicate we should continue running (scheduler will reschedule immediately)
+            else:
+                # No caller, task is truly done
+                return None
+        self.sendval = None  # reset sendval after sending
+
+        if isinstance(result, SystemCall):
+            # If coroutine yielded a system call (special request)
+            return result  # hand it to scheduler to handle:contentReference[oaicite:25]{index=25}
+
+        if isinstance(result, types.GeneratorType):
+            # Coroutine yielded a sub-generator: trampolining
+            self.stack.append(self.target)
+            self.target = result
+            # loop back (we can just return something that causes scheduler to immediately continue this task)
+            return self.run()  # (or manage via while loop as in Beazley’s code)
+        else:
+            # A normal yield (some value yielded to scheduler or caller)
+            if not self.stack:
+                # Top-level coroutine yielded a value (not a sub-call and not system call)
+                return result  # this result can be ignored or handled by scheduler if needed
+            # If there is a caller awaiting this yield:
+            caller = self.stack.pop()
+            self.target = caller
+            self.sendval = result  # send the yielded value as result back into caller
+            return self.run()
+</code></pre>
+<p>This logic is derived from Beazley’s trampolining implementation. In fact, Beazley’s code used a <code>while True</code> loop inside <code>run()</code> to handle nested yields in one go. The key idea is: <strong>if a coroutine yields another generator, we don't return to the scheduler</strong>; instead, we switch context to that sub-generator (pushing the current one onto a stack). We only return from <code>run()</code> to the scheduler when we hit a yield that <em>isn't</em> a sub-coroutine call or when a system call needs handling. If a coroutine fully finishes (StopIteration) and we have a caller on the stack, we pop back to it (effectively as if the yield of the sub-coro returned None). The scheduler will see a return of <code>None</code> from <code>task.run()</code> as either "task not ready to yield to scheduler (continue internally)" or "task completed". We might handle that by the scheduler: if <code>task.run()</code> returns <code>None</code>, it means either the task finished or is still running a sub-task (depending on how we code it). In Beazley’s code, he returned <code>None</code> to indicate the task isn’t yielding a real value (so the scheduler will just move to next task) until a system call or completion happens. We can follow a similar convention.</p>
+<p>To summarize <strong>Task.run outcomes</strong>: It can return a <code>SystemCall</code> object (meaning “scheduler, please handle this and don’t immediately reschedule me”), or return a regular value/None. If it returns a non-SystemCall (including <code>None</code>), the scheduler can assume the task either completed or just yielded a value without any special meaning – usually we would simply put the task back on the ready queue if it returned a value or <code>None</code> (unless <code>None</code> signifies completion). One way to detect completion is to track if the task’s coroutine is exhausted. In our code, if a StopIteration occurs with no caller, that task is done and should not be rescheduled. We might mark a flag or simply not requeue it.</p>
+<h3 id="scheduler"><a class="header" href="#scheduler">Scheduler</a></h3>
+<p>The <strong>Scheduler</strong> is the event loop that coordinates all tasks. It maintains data structures for ready tasks and for tasks waiting on events (like I/O or other tasks). Key parts of the scheduler design:</p>
+<ul>
+<li>
+<p>A queue (FIFO) of <strong>ready tasks</strong> that can run. We can use a simple list or <code>collections.deque</code> for this. Tasks get pulled from here to execute, and if they yield cooperatively (normal yield), they go back to the end of the queue. This ensures round-robin fairness for CPU time among tasks that are ready to run.</p>
+</li>
+<li>
+<p>A <strong>task table or registry</strong> to keep track of tasks by ID. For example, a dictionary <code>tasks</code> mapping <code>tid -&gt; Task</code>. This is useful if we implement operations like <code>KillTask(tid)</code> or <code>WaitTask(tid)</code> where the scheduler needs to find a specific task by its ID.</p>
+</li>
+<li>
+<p>Data structures for <strong>waiting tasks</strong>:</p>
+<ul>
+<li>For I/O: perhaps two dicts, <code>read_waiting</code> and <code>write_waiting</code>, mapping file descriptors to Task waiting on them (if any). Alternatively, a combined structure mapping an event key to tasks. Initially, we can keep it simple with two dicts as in Beazley’s example (one for read, one for write).</li>
+<li>For task waiting: if implementing <code>WaitTask</code>, we need a map of task IDs to a list of tasks waiting for them to finish. E.g., <code>waitting[tid] = [list of Tasks paused until tid finishes]</code>.</li>
+<li>For timers: if we want <code>Sleep(duration)</code> functionality, we might maintain a min-heap or list of (wake_time, Task) for tasks that are sleeping, and on each loop check the current time to see if any should be woken and moved to ready. (This is similar to how some event loops manage call-at-future-time events.)</li>
+</ul>
+</li>
+<li>
+<p>The <strong>main loop</strong> of the scheduler will roughly do: while there are tasks (or events to wait for):</p>
+<ol>
+<li>
+<p>If there are no ready tasks, block on I/O (and possibly timer) events until something is ready (to avoid busy-wait). If there are ready tasks, we might do a non-blocking check for I/O instead. This logic is found in Beazley’s <code>iotask()</code> which the scheduler can also manage as a special periodic task. We can incorporate the polling directly in the loop.</p>
+</li>
+<li>
+<p>Take the next task from the ready queue.</p>
+</li>
+<li>
+<p>Call <code>task.run()</code>.</p>
+</li>
+<li>
+<p>Examine the return value:</p>
+<ul>
+<li>If <code>result</code> is a <strong>SystemCall</strong> instance: This means the task is requesting a special operation (and has <strong>yielded control intentionally</strong> for this). The scheduler will <em>handle the system call</em> immediately. Typically, the SystemCall object has a <code>handle()</code> method that the scheduler can invoke. In our design, we can implement each SystemCall’s <code>handle</code> to perform the needed action. Before calling <code>handle()</code>, we usually set context on the SystemCall: e.g. <code>result.task = current_task</code> and <code>result.sched = self</code> so it knows who’s calling and can communicate back. After handling, the task might be ready to continue (or not). For example, <code>GetTid</code> system call will set the task’s <code>sendval</code> to its tid and immediately requeue the task. A <code>ReadWait</code> system call will <strong>not</strong> requeue the task; instead it will put the task into <code>read_waiting</code> and <em>not</em> schedule it until the I/O is ready. The SystemCall’s logic will determine that. After <code>handle()</code>, the scheduler’s loop continues to the next iteration without requeuing the current task (unless the system call did so).</li>
+<li>If <code>result</code> is <code>None</code> or a <strong>regular value</strong> (not a SystemCall): This means the task either completed or just yielded a value. If <code>result is None</code> and the task’s generator is done, we drop the task (it finished execution). If <code>result is not None</code> (or is None but the task is not actually done yet due to trampolining), it likely represents a <strong>normal cooperative yield</strong> – the task yielded control on purpose (maybe via a <code>yield</code> with no special object). In such case, we simply put the task back onto the ready queue to resume later. We might not have a strong use for the actual value yielded (some systems use it for passing messages, but in our design we don’t anticipate tasks communicating via yielded values except for the defined SystemCall objects). We can safely ignore or log unexpected yield values. In summary, for a normal yield, requeue the task.</li>
+<li>If an exception was raised from <code>task.run()</code> that isn’t StopIteration (meaning an error in task): we might catch it around <code>task.run()</code>. In such a case, we should consider the task crashed. The scheduler can log the exception (and the task ID for debugging) and not requeue the task. This prevents one task’s error from crashing the whole scheduler loop.</li>
+</ul>
+</li>
+</ol>
+</li>
+<li>
+<p><strong>I/O polling</strong>: To handle I/O, the scheduler will incorporate a call to <code>select</code> (or an equivalent like <code>selectors</code> in Python) each cycle. One approach (from Beazley’s code) is to spawn a special internal task whose job is to continuously call <code>iopoll()</code> in a loop and yield, so that it runs concurrently with others. Another approach is to integrate polling into the main loop when no ready tasks are left (or periodically). We can do something like:</p>
+</li>
+</ul>
+<pre><code class="language-python"># Pseudocode for I/O wait integration in scheduler loop:
+if not ready_queue:
+    # No task ready to run, so we can block on I/O
+    timeout = None  # block indefinitely until an event
+else:
+    timeout = 0  # poll without blocking (just check and return)
+readable, writable, _ = select(read_waiting_fds, write_waiting_fds, [], timeout)
+for fd in readable:
+    task = read_waiting.pop(fd)
+    ready_queue.append(task)
+    # perhaps set task.sendval = None or some actual data if needed
+for fd in writable:
+    task = write_waiting.pop(fd)
+    ready_queue.append(task)
+</code></pre>
+<p>This way, if tasks are waiting on I/O, we wake them when ready. If tasks are simply CPU-bound but cooperative, the <code>timeout=0</code> poll ensures we check I/O quickly without blocking, and then continue round-robin. If <em>all</em> tasks are waiting (no one ready), we do a blocking wait (<code>timeout=None</code>) so that the process sleeps until an I/O event occurs. This is important to avoid spinning CPU when idle.</p>
+<ul>
+<li>
+<p><strong>SystemCall Handling</strong>: We will define a small set of system call classes that encapsulate operations. Likely candidates for Tiffany:</p>
+<ul>
+<li><code>GetTid</code> – returns the task’s own ID. Useful for tasks to identify themselves (maybe for logging). This would simply do: <code>self.task.sendval = self.task.tid; self.sched.schedule(self.task)</code> (i.e., put the task back in ready queue).</li>
+<li><code>NewTask(coro)</code> – create a new Task for the given coroutine and schedule it. The current task could receive the new task’s id as a result of the yield. Implementation: create Task, store in task map, enqueue it; set current task’s <code>sendval</code> to new task’s id (or some acknowledgment) and then <strong>also</strong> enqueue current task again (so it continues).</li>
+<li><code>WaitTask(tid)</code> – current task wants to wait until task <code>tid</code> completes. We would check if that task is still alive. If yes, remove current from ready queue and put it in a wait list for that <code>tid</code>. If the task <code>tid</code> is already done, we can immediately continue the current task (perhaps setting <code>sendval</code> to some result or <code>None</code>). If waiting, when task <code>tid</code> eventually finishes, the scheduler will need to take any tasks in its wait list and enqueue them (with perhaps a result indicating that the wait is over).</li>
+<li><code>KillTask(tid)</code> – to terminate a task. The scheduler would look up the task by id, and if found, remove it from ready queue or waiting structures, and possibly prevent it from running. If a task is killed, tasks waiting on it might need to be notified (maybe with an exception or a special value). We might not need this in Tiffany initially unless we have a use-case to stop tasks.</li>
+<li><code>ReadWait(file)</code> / <code>WriteWait(file)</code> – as described, these will take the file’s file descriptor and put the task in <code>read_waiting</code> or <code>write_waiting</code>. The task is not requeued; it’ll be resumed by the scheduler when the fd is ready (detected via select). We should mark in the task map that this task is now blocked on I/O. The <code>handle()</code> will do: <code>self.sched.waitforread(self.task, fd)</code> for example, and nothing more (do not requeue the task). The scheduler’s polling will take care of waking it.</li>
+<li>(Optional) <code>Sleep(dt)</code> – not mentioned in Beazley’s original, but easy to add. It would record a wake-up time (now + dt) and put the task aside (perhaps in a min-heap sorted by wake time). The scheduler each loop can check the soonest wake-up time to decide a timeout for select. When time is reached or passed, the scheduler will requeue the task. This can be implemented similarly to I/O wait.</li>
+</ul>
+</li>
+</ul>
+<p>We can implement these system calls as classes with a <code>handle()</code> method as mentioned. They might look like:</p>
+<pre><code class="language-python">class SystemCall:
+    def handle(self):
+        pass
+
+class GetTid(SystemCall):
+    def handle(self):
+        self.task.sendval = self.task.tid
+        self.sched.schedule(self.task)  # put task back ready
+
+class NewTask(SystemCall):
+    def __init__(self, coro):
+        self.coro = coro
+    def handle(self):
+        new_task = Task(self.coro)
+        self.sched.add_task(new_task)
+        # Immediately schedule new task
+        self.sched.schedule(new_task)
+        # Also resume current task
+        self.task.sendval = new_task.tid
+        self.sched.schedule(self.task)
+</code></pre>
+<p>And so on for others (<code>ReadWait</code>, etc.), following the patterns from Beazley’s code (which we have paraphrased). The scheduler will detect <code>isinstance(result, SystemCall)</code> and invoke <code>result.handle()</code> after attaching <code>result.task = current_task</code> and <code>result.sched = self</code>. This injects the needed context so the SystemCall knows which task is making the request and can access the scheduler.</p>
+<p><strong>Scheduler APIs:</strong> We should have methods like <code>Scheduler.new(coro)</code> to add a new coroutine (wrap it in Task and enqueue), and <code>Scheduler.schedule(task)</code> to enqueue an existing Task (this might just put it in ready queue). Also, perhaps <code>Scheduler.exit(task)</code> or internal handling when a task finishes (to do cleanup, e.g., remove from task map, and wake any waiters).</p>
+<p>The main loop <code>Scheduler.mainloop()</code> drives everything until no tasks remain. It will incorporate the logic discussed: get next ready task, run it, handle results, and poll events. In Python pseudocode:</p>
+<pre><code class="language-python">def mainloop(self):
+    while self.tasks or not self.ready.empty():
+        # handle IO and timers
+        if self.ready.empty():
+            timeout = None
+        else:
+            timeout = 0
+        # use select or similar to get ready fds
+        rlist = list(self.read_waiting.keys())
+        wlist = list(self.write_waiting.keys())
+        if rlist or wlist:
+            readable, writable, _ = select.select(rlist, wlist, [], timeout)
+            for fd in readable:
+                task = self.read_waiting.pop(fd)
+                self.schedule(task)
+            for fd in writable:
+                task = self.write_waiting.pop(fd)
+                self.schedule(task)
+        elif timeout is None:
+            # No fds to wait on, but we have to wait (meaning no ready tasks and no I/O)
+            # This situation likely means no tasks at all, or only tasks waiting on something that isn't fd (maybe a timer).
+            # We could sleep or break.
+            break
+
+        if not self.ready.empty():
+            task = self.ready.get()  # dequeue a ready task
+        else:
+            continue  # go back to loop top if nothing ready (maybe all tasks done while waiting)
+
+        result = None
+        try:
+            result = task.run()
+        except Exception as e:
+            # handle unexpected task exception
+            print(f"Task {task.tid} raised {e}, removing it")
+            # (optionally call some task cleanup)
+            continue
+
+        if result is None:
+            # Task finished or yielded normally with no special request
+            if task.is_done():  # we would need a way to check if fully done
+                # remove from task map, and if someone waiting on it:
+                if task.tid in self.waiting:
+                    for wtask in self.waiting[task.tid]:
+                        self.schedule(wtask)
+                    del self.waiting[task.tid]
+                continue  # don't requeue
+            else:
+                # If not done, it yielded cooperatively (like yield None or something)
+                self.schedule(task)  # just requeue
+        elif isinstance(result, SystemCall):
+            result.task = task
+            result.sched = self
+            result.handle()
+            # Note: the SystemCall handler is responsible for requeueing the task or not
+        else:
+            # The task yielded a value (not None, not SystemCall)
+            # We currently have no use for direct yielded values except maybe debug
+            # Treat it as a cooperative yield: task still alive, requeue it
+            self.schedule(task)
+</code></pre>
+<p>The above is a rough outline; details will differ (like how we mark task done – perhaps <code>Task.run()</code> sets an internal flag or we catch StopIteration).</p>
+<p>One subtlety: In Beazley’s code, when a task returns a SystemCall, <code>Task.run()</code> actually <em>returns</em> that SystemCall up to the scheduler, and the scheduler does not immediately requeue the task but processes the system call. The task in such case is still in a running state, just paused until the system call is done. Many system calls will immediately put the task back to ready (like GetTid, NewTask), but some (ReadWait, WaitTask) deliberately do not requeue the task, causing it to be effectively blocked. Our design follows the same approach.</p>
+<p>To illustrate the scheduling and task switching, consider two tasks yielding control back and forth:</p>
+<p> <em>Figure 1: Cooperative task switching.</em> In the above sequence diagram, Task A runs and then <strong>yields control</strong> to the scheduler (e.g., by executing a simple <code>yield</code> with no special event) to allow other tasks to run. The scheduler receives control and marks Task A as ready (or takes it out temporarily since it yielded). The scheduler then picks Task B to run next. Task B runs for a while and then yields control as well. The scheduler resumes Task A, and so on in a round-robin fashion. This cooperative approach ensures tasks take turns. Each arrow labeled "yield ... control" represents a task suspending itself by yielding, and "resume Task X" represents the scheduler activating the next task. The scheduler is at the center, orchestrating the switches.</p>
+<h3 id="trampolining-and-nested-coroutines"><a class="header" href="#trampolining-and-nested-coroutines">Trampolining and Nested Coroutines</a></h3>
+<p>Trampolining is handled within the Task’s <code>run()</code> logic, as described, rather than in the scheduler. This is by design: from the <strong>scheduler’s perspective, a Task with trampolining is still a single task</strong> – the scheduler doesn’t need to know if the task internally entered a sub-coroutine. The Task will only return to the scheduler when the entire nested sequence yields a system call or finishes. This keeps the scheduler simple and pushes the complexity to the Task object.</p>
+<p>To understand trampolining, imagine a server task that calls a helper coroutine. For example:</p>
+<pre><code class="language-python">def Accept(sock):
+    yield ReadWait(sock)            # wait for a client to connect
+    client, addr = sock.accept()    # accept connection (once socket is ready)
+    yield client, addr              # yield the result back to caller
+
+def server(port):
+    sock = setup_listening_socket(port)
+    while True:
+        client, addr = yield Accept(sock)   # call sub-coroutine Accept
+        yield NewTask(handle_client(client, addr))
+</code></pre>
+<p>In this scenario, <code>server()</code> calls <code>Accept(sock)</code> via <code>yield</code>. Without trampolining, <code>Accept</code>’s yields would not be handled correctly. With trampolining, what happens internally is:</p>
+<ul>
+<li>
+<p>The <code>server</code> coroutine (let’s call it <strong>Outer</strong>) yields a generator object when it does <code>yield Accept(sock)</code>. That generator corresponds to the <strong>Accept</strong> coroutine. The Task running <code>server</code> detects it yielded a generator. It <strong>pushes the Outer generator onto its stack</strong> and sets its current <code>target</code> to the Accept generator. The Task now will start/resume the Accept coroutine. The scheduler is <em>not</em> involved in this switch; it all happens inside <code>Task.run</code>.</p>
+</li>
+<li>
+<p>The Accept coroutine runs until its first yield. It yields <code>ReadWait(sock)</code> – a system call to wait for a socket. At this point, in <code>Task.run</code>, <code>result</code> is a <code>ReadWait</code> SystemCall, which triggers the <code>return result</code> path. Thus, the Task returns the <code>ReadWait</code> event to the scheduler (and pauses). The scheduler sees a SystemCall, sets it up with context, and handles it. In this case, <code>ReadWait.handle()</code> will register that task in the <code>read_waiting</code> map for that socket’s fd and <strong>not</strong> requeue it. The task is now blocked waiting for I/O. The scheduler will move on to other tasks (if any) or wait in select for file descriptors.</p>
+</li>
+<li>
+<p>When a client connection comes in, the listening socket becomes readable. The scheduler’s <code>select</code> call returns that fd as ready. The scheduler finds which task was waiting on that fd (the Accept’s task) and puts it back on the ready queue. Now the Accept coroutine can resume. The scheduler will eventually run that task again; in <code>Task.run</code>, we re-enter where we left off in Accept (after the <code>yield ReadWait</code>). We likely set <code>sendval = None</code> when resuming after I/O (no particular value to send, or we could send the <code>sock.accept()</code> result, but in this design Accept itself will call <code>sock.accept()</code>). Accept now executes <code>client, addr = sock.accept()</code> (since the socket is ready) and then <code>yield client, addr</code>. That yields a regular value (not a SystemCall or generator) back to the scheduler.</p>
+</li>
+<li>
+<p>The Task’s <code>run()</code> sees the Accept generator yielded a normal value (the client socket and address). Since the Task’s stack is not empty (Outer is waiting), the code will <strong>pop the Outer generator off the stack</strong>, make it the current target again, and set the value as <code>sendval</code>. It then continues running the Outer generator, effectively sending the <code>(client, addr)</code> tuple into the <code>yield Accept(sock)</code> expression. Thus, in the <code>server()</code> coroutine, the call <code>client, addr = yield Accept(sock)</code> receives the values and continues. From the scheduler’s view, this entire sequence looks like the task went to sleep on I/O and then produced a SystemCall and later simply yielded a normal value (the tuple) which we ignored/treated as cooperative yield before rescheduling. The Outer coroutine then immediately yields <code>NewTask(handle_client(client, addr))</code> as per the code, which will be a SystemCall. The scheduler handles the NewTask system call by creating a new task for <code>handle_client</code> and scheduling it. Meanwhile, the server task (Outer) is requeued (since after yielding NewTask it would continue its loop).</p>
+</li>
+</ul>
+<p>This interplay is complex, but the <strong>good news</strong> is our design cleanly separates concerns:</p>
+<ul>
+<li>The Task/trampoline mechanism handles <strong>sub-coroutine calls and returns</strong> without scheduler intervention, making nested coroutine calls possible just like nested function calls.</li>
+<li>The scheduler handles <strong>system calls and dispatch</strong>.</li>
+<li>The net effect is our code can be written in a linear style with <code>yield</code> acting as an async wait, which is very convenient.</li>
+</ul>
+<p> <em>Figure 2: Nested coroutine (trampolining) and I/O event sequence.</em> The above diagram illustrates the sequence described: The Outer task (e.g., the <code>server</code> loop) yields a sub-coroutine <code>Accept(sock)</code>. The Task internals switch to running the Accept coroutine. The Accept coroutine yields a <code>ReadWait</code> system call to the Scheduler, indicating it needs to wait for the socket. The Scheduler pauses the task until the socket is ready (some time passes externally). Once a client connects (socket ready), the Scheduler resumes the Accept coroutine. Accept then produces a result (<code>client, addr</code>) and returns that back to the Outer task. The Outer task resumes, now with the client info, and can continue (in this case, spawning a new task to handle the client). All of this happens seamlessly: from the programmer’s perspective, <code>yield Accept(sock)</code> returned a value when the Accept coroutine completed, just like a normal function call that waited for I/O. This transparency is the benefit of trampolining. The scheduler did not have to know about the call to Accept; it only dealt with the <code>ReadWait</code> and later the <code>NewTask</code> system calls.</p>
+<h3 id="rust-implementation-consideration"><a class="header" href="#rust-implementation-consideration">Rust Implementation Consideration</a></h3>
+<p>We should briefly consider how this design would map to Rust 2024, to ensure our approach is not fundamentally incompatible if we choose or need to implement in Rust. Rust’s async/await works differently but the high-level structure of an event loop with tasks is analogous:</p>
+<ul>
+<li>
+<p>In Rust, an <strong>async function</strong> is analogous to our coroutine. It can <code>await</code> on futures (similar to yielding events). We could create an executor that polls these futures. For example, our scheduler’s main loop in Rust would poll each future (task) until it returns <code>Poll::Pending</code> or <code>Poll::Ready</code>. If pending, it means the task yielded (awaited) on something – we’d then need to know on what it’s waiting (Rust’s waker system handles this via registering wakers with reactors like epoll or timers). If ready, the future completed and can be dropped.</p>
+</li>
+<li>
+<p>Many of the constructs we have as SystemCall in Python would correspond to either standard library futures or custom future combinators in Rust. For instance, waiting on a socket is typically done by an async I/O reactor (like using <code>tokio</code> which integrates with OS polling under the hood). Spawning a new task is typically a method on the executor (<code>spawn</code> in tokio). Getting a task ID is not built-in in Rust futures (since tasks are generally anonymous closures), but one could incorporate an ID for logging.</p>
+</li>
+<li>
+<p>One <em>could</em> attempt to implement a stackful coroutine in Rust with the unstable <code>Generator</code> trait, which would look more like the Python approach (allowing <code>yield</code> within a generator). However, using that directly is nightly-only. Instead, using async/await (which are stackless coroutines) is the idiomatic way. Each <code>.await</code> in Rust is akin to a yield point where the task returns control to the executor. The executor must know how to wake the task when the awaited operation is ready. This is done via <code>Waker</code> objects in Rust, typically provided by the runtime. Our Python scheduler used a simple <code>select</code> loop; in Rust, an executor often uses OS selectors (epoll, etc.) or leverages a library for readiness (like <code>mio</code> in tokio).</p>
+</li>
+<li>
+<p><strong>Minimum needed vs full features</strong>: In Rust, if using existing libraries, we might not need to implement our own reactor – we could use something like <code>futures::executor::block_on</code> or <code>smol</code> or <code>tokio</code> for a lot of functionality. But if we want a standalone minimal runtime (for learning or control), we could implement a basic <code>select</code> or <code>poll</code> loop using lower-level crates. Our SystemCall analogs in Rust could be simple functions or futures: e.g., a <code>read_wait(socket)</code> could be a future that registers interest in a socket readability event and yields until the socket is readable. The complexity is higher than in Python due to Rust’s safety and the need to interface with OS properly (non-blocking sockets, etc.).</p>
+</li>
+</ul>
+<p><strong>Evaluating Python vs Rust for Tiffany</strong>: For prototyping and quick development, Python’s coroutine scheduler is extremely flexible and easy to change. It runs in a single thread (which might be fine if Tiffany’s workload is I/O-bound and not CPU-bound) and can handle many concurrent tasks (Python generators are lightweight). Python’s drawback is performance – if we need to handle thousands of tasks or high throughput I/O, the Python interpreter might become a bottleneck. Additionally, Python’s GIL prevents multi-core usage, but since we’re doing single-threaded co-op multitasking, that’s not a concern unless one wanted to scale across threads (not in our current scope).</p>
+<p>Rust, on the other hand, offers high performance and true non-blocking behavior with zero-cost abstractions once compiled. If Tiffany’s environment is constrained (e.g., running on bare-metal with low resources or needing to maximize network throughput), a Rust implementation might be worthwhile. Rust also offers memory safety – our Python scheduler must be carefully written, but Python itself is memory safe; the main risks in Python are logical (like forgetting to requeue a task or handle an exception). Rust could help avoid certain classes of errors (like data races, if we later use multiple threads for parallelism). However, writing our own Rust async runtime is a significantly bigger engineering effort than the Python prototype. The <strong>minimum necessary</strong> for our needs might be achieved with the Python approach initially, given we don't need true parallelism or extreme performance in the prototype stage. We can ensure the design is portable to Rust by mirroring concepts:</p>
+<ul>
+<li>Use <strong>Futures</strong> in Rust as tasks; use an executor (which we can implement or reuse) akin to our Scheduler.</li>
+<li>Replace yields and SystemCalls with <code>await</code> points and either library futures (for I/O) or custom ones (for things like <code>GetTid</code> – though in Rust, <code>GetTid</code> is trivial or not usually needed, since tasks aren't typically identified by an integer by default).</li>
+<li>We won’t have an exact equivalent of trampolining issue in Rust because <code>async/await</code> handles that automatically via the compiler (an async function can call another async function and <code>await</code> it, which is analogous to our yield-from or trampolining solution, but the Rust compiler flattens these awaits in the generated state machine). Essentially, Rust’s <code>async</code> is more like having trampolining built-in – you can await nested async calls with no special effort.</li>
+</ul>
+<p>In conclusion, for <strong>Tiffany's minimum requirements</strong>, the Python coroutine scheduler suffices and is easier to build and iterate on. We will proceed with that design, implementing just the features we need (task creation, basic synchronization, and non-blocking I/O). If performance tests or production considerations demand it, we can plan a migration to Rust using an equivalent structure (possibly leveraging an existing runtime to avoid reinventing the wheel at low level). The conceptual model of our scheduler – an event loop handling tasks and events – is common to virtually all async runtimes (from JavaScript’s event loop to libuv, Python asyncio, and Rust executors), so the knowledge and design should translate well.</p>
+<h2 id="summary-of-design-decisions"><a class="header" href="#summary-of-design-decisions">Summary of Design Decisions</a></h2>
+<ul>
+<li><strong>Single-threaded cooperative scheduler</strong>: simple design, deterministic behavior, no preemption. Suitable for I/O-heavy tasks. Not suitable for CPU-bound parallel work (not needed for now).</li>
+<li><strong>Coroutine tasks via Python generators</strong>: easy to implement the logic of yield/resume. We use generator <code>send()</code> and <code>yield</code> to alternate between tasks and scheduler. We wrap them in a Task class to manage state and allow nested yields (trampolining).</li>
+<li><strong>System call objects for events</strong>: We define specific events tasks can yield to trigger actions like spawning tasks or waiting on I/O. This makes the yield interface extensible – we can add new capabilities by introducing new SystemCall classes without changing the core scheduler loop much.</li>
+<li><strong>Trampolining with explicit stack</strong>: This is included to allow tasks to call sub-coroutines cleanly. It adds a bit of complexity to Task.run but keeps scheduler logic clean (the scheduler always sees top-level yields only). This decision is justified by the need for clean code structure in tasks (avoiding monolithic giant coroutines because of lack of yield-from). Since we target at least Python 3.7+ for Tiffany (likely, given modern context), we <em>could</em> use <code>yield from</code> instead of manual trampolining. Indeed, PEP 380 (yield from) provides a language-level way to delegate to subgenerators, which would make our Task.run simpler (we wouldn’t need to manually push/pop stack). However, using <code>yield from</code> means our coroutines would use that syntax directly in their code. If we have control over writing all coroutine functions, this is fine. If we prefer to support even older style or want to see how it works under the hood, trampolining is educational. Given that yield-from is well-supported, an alternative design is: whenever a generator yields another generator, we could use <code>yield from</code> to drive it. But since our scheduler is explicitly managing yields, we likely stick to our manual approach.</li>
+<li><strong>Minimal set of system calls</strong>: We will implement only those needed. For example, if Tiffany’s tasks mostly revolve around network and spawning, we implement <code>NewTask</code>, <code>ReadWait</code>, <code>WriteWait</code>, and possibly a <code>Sleep</code>. If tasks need to coordinate, <code>WaitTask</code> can be added. We won’t implement features like prioritization or time-slicing (each task runs until it yields). If a task misbehaves (never yields), it will block the system – this is acceptable given our controlled use cases, but we’ll document that tasks must be written to yield appropriately.</li>
+<li><strong>Integration with actual I/O</strong>: We assume the environment allows non-blocking I/O operations. For example, for network sockets we will set them to non-blocking mode (Beazley’s example uses <code>socket.accept()</code> after waiting, which is fine because the accept will not block when select indicates readiness). For file reading or other ops, we may need similar handling. Python’s <code>select</code> works on sockets and some other file types on Unix. If we need cross-platform or more complex monitoring, we could use the <code>selectors</code> module which abstracts <code>select</code>/<code>poll</code>/<code>epoll</code> differences. But to keep it minimal, <code>select</code> is okay if our fd sets are small (there is a FD limit on select, but likely not an issue for Tiffany’s scale).</li>
+</ul>
+<p>The design above gives us a clear blueprint to start coding. We have focused on the essential mechanisms: task switching, waiting for events, and maintaining state. We have also discussed how to scale it down or up depending on needs (e.g., what happens in Rust, what features to omit for simplicity). With this design, the next step is to implement the Scheduler and Task classes in code, define the necessary SystemCall subclasses, and test the system with some example tasks (like a simple server or a ping-pong between tasks) to ensure it behaves as expected. The sequence diagrams provided illustrate the flow of control between tasks and the scheduler, which we will use as a reference for implementation correctness.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="tiffany-system-diagrams"><a class="header" href="#tiffany-system-diagrams">Tiffany System Diagrams</a></h1>
+<p>This section contains visual documentation and sequence diagrams for:</p>
+<ul>
+<li>Coroutine scheduler</li>
+<li>WAL/PAL replay and dataflow</li>
+<li>ReAct loop and skill execution</li>
+<li>Task lifecycle and fault handling</li>
+</ul>
+<p>All diagrams are written in Mermaid and versioned alongside the system ADRs and concepts.</p>
+<blockquote>
+<p>See also: <a href="diagrams/../adr/adr_0006_wal_replay.html">ADR-0006</a>, <a href="diagrams/../adr/adr_0009_code_graph.html">ADR-0009</a></p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div><h3 id="diagram-d1--basic-task-switching-readyqueue-only-1"><a class="header" href="#diagram-d1--basic-task-switching-readyqueue-only-1">Diagram D1 – Basic Task Switching (ReadyQueue only)</a></h3>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant Scheduler
+    participant ReadyQueue as FIFO
+    actor TaskA
+    actor TaskB
+
+    Scheduler-&gt;&gt;ReadyQueue: dequeue TaskA
+    ReadyQueue--&gt;&gt;Scheduler: TaskA
+    Scheduler-&gt;&gt;TaskA: resume()
+    TaskA--&gt;&gt;Scheduler: yield (None)
+    Scheduler-&gt;&gt;ReadyQueue: enqueue(TaskA)
+
+    Scheduler-&gt;&gt;ReadyQueue: dequeue TaskB
+    ReadyQueue--&gt;&gt;Scheduler: TaskB
+    Scheduler-&gt;&gt;TaskB: resume()
+    TaskB--&gt;&gt;Scheduler: yield (None)
+    Scheduler-&gt;&gt;ReadyQueue: enqueue(TaskB)
+</code></pre>
+<h3 id="diagram-d2--nested-coroutines-trampolining-1"><a class="header" href="#diagram-d2--nested-coroutines-trampolining-1">Diagram D2 – Nested Coroutines (Trampolining)</a></h3>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant CallStack as CallStack_LIFO
+    actor TaskMain
+    actor SubCoro
+    
+    TaskMain--&gt;&gt;CallStack: push(TaskMain.gen)
+    TaskMain-&gt;&gt;SubCoro: start sub-coroutine
+    SubCoro--&gt;&gt;CallStack: yield value
+    CallStack-&gt;&gt;TaskMain: pop parent
+    TaskMain-&gt;&gt;TaskMain: resume with value
+</code></pre>
+<h3 id="diagram-d3--io-blocking-and-wakeup-1"><a class="header" href="#diagram-d3--io-blocking-and-wakeup-1">Diagram D3 – I/O Blocking and Wakeup</a></h3>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant Scheduler
+    participant WaitMap as EventMap
+    participant ReadyQueue
+    actor TaskIO
+    
+    TaskIO--&gt;&gt;Scheduler: yield ReadWait(fd=7)
+    Scheduler-&gt;&gt;WaitMap: record TaskIO blocked on fd=7
+    
+    Note right of WaitMap: fd=7 becomes readable
+    WaitMap-&gt;&gt;Scheduler: notify fd=7 ready
+    Scheduler-&gt;&gt;ReadyQueue: enqueue(TaskIO)
+    ReadyQueue--&gt;&gt;Scheduler: TaskIO ready to run
+</code></pre>
+<h3 id="diagram-d4--sleep-timer"><a class="header" href="#diagram-d4--sleep-timer">Diagram D4 – Sleep Timer</a></h3>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant Scheduler
+    participant WaitMap as SleepMap
+    participant ReadyQueue
+    actor TaskSleep
+    
+    TaskSleep--&gt;&gt;Scheduler: yield Sleep(3s)
+    Scheduler-&gt;&gt;WaitMap: record TaskSleep with wake_time = now + 3s
+    
+    Note right of WaitMap: 3 seconds pass
+    WaitMap-&gt;&gt;Scheduler: wake TaskSleep
+    Scheduler-&gt;&gt;ReadyQueue: enqueue(TaskSleep)
+</code></pre>
+<h3 id="diagram-d5--join--waittask"><a class="header" href="#diagram-d5--join--waittask">Diagram D5 – Join / WaitTask</a></h3>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant Scheduler
+    participant WaitMap as JoinMap
+    actor TaskA as Task_Parent
+    actor TaskB as Task_Child
+    
+    TaskA--&gt;&gt;Scheduler: yield NewTask(TaskB)
+    Scheduler-&gt;&gt;TaskA: resume with TaskB.tid
+    
+    TaskA--&gt;&gt;Scheduler: yield WaitTask(TaskB)
+    Scheduler-&gt;&gt;WaitMap: record TaskA waiting on TaskB
+    
+    Note right of TaskB: TaskB runs and completes
+    TaskB--&gt;&gt;Scheduler: StopIteration
+    Scheduler-&gt;&gt;WaitMap: notify TaskA to resume
+</code></pre>
+<h3 id="-agent-task-graph-per-agent--dag-view"><a class="header" href="#-agent-task-graph-per-agent--dag-view">✅ Agent Task Graph (Per Agent / DAG View)</a></h3>
+<p>Type: graph TD (or flowchart TD)
+Purpose: Visualize how one FAR agent's current task decomposes into subtasks, dependencies, joins, etc.</p>
+<pre><code class="language-mermaid">graph TD
+    RootTask[Plan Story Code]
+    Sub1[Setup Repo]
+    Sub2[Create main.rs]
+    Sub3[Implement main_fn]
+    Sub4[Add Tests]
+    Join[WaitTask: Finalize]
+
+    RootTask --&gt; Sub1
+    RootTask --&gt; Sub2
+    Sub2 --&gt; Sub3
+    Sub3 --&gt; Sub4
+    Sub1 --&gt; Join
+    Sub4 --&gt; Join
+
+</code></pre>
+<h3 id="-far-cluster-view-distributed-agents--scheduler"><a class="header" href="#-far-cluster-view-distributed-agents--scheduler">✅ FAR Cluster View: Distributed Agents &amp; Scheduler</a></h3>
+<p>Type: graph LR or flowchart LR
+Purpose: Show how agents across blades interact with a central orchestrator + local schedulers</p>
+<pre><code class="language-mermaid">flowchart LR
+    Orchestrator[[Central Scheduler]]
+    subgraph Blade A
+        A1[Agent 001\n - builder]
+        SchedA[Local Scheduler]
+    end
+    subgraph Blade B
+        A2[Agent 002\n - Tester]
+        SchedB[Local Scheduler]
+    end
+
+    Orchestrator --&gt; SchedA --&gt; A1
+    Orchestrator --&gt; SchedB --&gt; A2
+
+</code></pre>
+<h3 id="-skill-invocation-trace-react-aware-timeline"><a class="header" href="#-skill-invocation-trace-react-aware-timeline">✅ Skill Invocation Trace (ReAct-aware timeline)</a></h3>
+<p>Purpose: Show how a ReAct loop invokes skills with context, yields, retries, and memory access</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    actor ReActLoop
+    participant SkillManager
+    participant SkillEdit
+    participant MemoryStore
+    participant WAL
+
+    ReActLoop-&gt;&gt;SkillManager: invoke("Edit main.rs")
+    SkillManager-&gt;&gt;SkillEdit: run()
+    SkillEdit-&gt;&gt;MemoryStore: lookup(path="main.rs")
+    MemoryStore--&gt;&gt;SkillEdit: file AST
+    SkillEdit--&gt;&gt;WAL: write(PatchGenerated)
+    SkillEdit--&gt;&gt;SkillManager: return Patch
+    SkillManager--&gt;&gt;ReActLoop: Patch ready
+
+</code></pre>
+<p>✅ 11. Agent Memory Structure (Graph + Vector)</p>
+<p>Purpose: Show semantic and episodic memory layers, link to disk/durable store</p>
+<pre><code class="language-mermaid">graph TD
+  MemRoot[Memory: Agent]
+  Sem[Semantic Graph]
+  Episodic[Task Log / WAL]
+  Vectors[VectorStore - code, plans]
+GraphDB[(Neo4j)]
+VecDB[(Qdrant/Faiss)]
+
+MemRoot --&gt; Sem --&gt; GraphDB
+MemRoot --&gt; Episodic --&gt; WAL
+MemRoot --&gt; Vectors --&gt; VecDB
+</code></pre>
+<p>✅ 12. Coroutines Timeline (Concurrent Task Steps)</p>
+<p>Purpose: Show wall-clock execution of several tasks with yield/resume gaps</p>
+<pre><code class="language-mermaid">gantt
+    title Task Concurrency Timeline
+    dateFormat  HH:mm:ss
+    section Task_Main
+    run      :active, 00:00:00, 5s
+    sleep    : 00:00:05, 3s
+    resume   : 00:00:08, 4s
+    section Task_Sub
+    start    :active, 00:00:02, 3s
+    block_io : 00:00:05, 4s
+    finish   : 00:00:09, 2s
+
+</code></pre>
+<p>✅ System Call Map</p>
+<p>Purpose: Visualize all supported system calls and their dispatch targets (WAL, IO, Scheduler)</p>
+<pre><code class="language-mermaid">graph LR
+    YieldNewTask --&gt; Scheduler
+    YieldReadWait --&gt; IOSelector
+    YieldSleep --&gt; TimerWheel
+    YieldGetTid --&gt; Scheduler
+    YieldMemoryQuery --&gt; MemoryStore
+    YieldLog --&gt; PAL
+
+</code></pre>
+<p>✅ Task WAL Replayer Flow</p>
+<p>Purpose: Shows how the replay engine reconstructs a task from the WAL stream, rehydrating state and optionally stepping through each yield point.</p>
+<pre><code class="language-mermaid">flowchart TD
+    WAL[WAL Stream: task_187.log] --&gt; Parser
+    Parser --&gt; EventQueue
+    EventQueue --&gt; Scheduler
+    Scheduler --&gt; TaskReplayer
+    TaskReplayer --&gt; CallStack
+    TaskReplayer --&gt; PAL[Replay Mode: emit PAL ghost events]
+    TaskReplayer --&gt; Memory[Optional Memory Patching]
+
+    style WAL fill:#dff,stroke:#0af
+    style PAL fill:#eee,stroke:#f08
+    style Memory fill:#f9f,stroke:#808
+
+</code></pre>
+<p>✅ Panic Propagation via Wait/Join Graph</p>
+<p>Purpose: If a child task panics, show how the error might propagate to parent or dependents if not isolated.</p>
+<pre><code class="language-mermaid">graph TD
+    A[Task_Main\n - tid 101]
+    B[Task_Git\n - tid 202]
+    C[Task_Edit\n - tid 203]
+    D[Task_Tests\n - tid 204]
+
+    A --&gt;|JoinTask| B
+    A --&gt;|JoinTask| C
+    C --&gt;|JoinTask| D
+
+    D -.-&gt;|panic| C
+    C -.-&gt;|propagate panic| A
+
+    style D fill:#faa,stroke:#800
+    style C fill:#ffe,stroke:#aa0
+
+</code></pre>
+<p>✅ Bonus 3: Skill Invocation Heatmap</p>
+<p>Purpose: Visualize which system tools/skills are being used most frequently, based on PAL telemetry stream.</p>
+<pre><code class="language-mermaid">graph LR
+    Skill_Edit["📝 Edit File"]:::hot
+    Skill_Grep["🔍 Grep"]:::warm
+    Skill_Test["✅ Run Tests"]:::hot
+    Skill_Git["🌿 Git Ops"]:::warm
+    Skill_Plan["🧠 Plan/Refactor"]:::cold
+    Skill_Fmt["🧹 Format Code"]:::cold
+
+    style Skill_Edit fill:#f88,stroke:#800
+    style Skill_Test fill:#f88,stroke:#800
+    style Skill_Grep fill:#fb6,stroke:#aa0
+    style Skill_Git fill:#fb6,stroke:#aa0
+    style Skill_Plan fill:#ccf,stroke:#44f
+    style Skill_Fmt fill:#ccf,stroke:#44f
+
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="tiffany-adr-index"><a class="header" href="#tiffany-adr-index">Tiffany ADR Index</a></h1>
+<p>This document tracks relevant Architectural Decision Records (ADRs) for the Tiffany agentic runtime project. ADRs are numbered sequentially and grouped by functional domain.</p>
+<h2 id="-summary-of-additional-adr-recommendations"><a class="header" href="#-summary-of-additional-adr-recommendations">🗂️ Summary of Additional ADR Recommendations:</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>ADR</th><th>Description</th><th>Summary</th><th>Importance</th></tr></thead><tbody>
+<tr><td>1</td><td>Choice of Rust Version</td><td>Use the latest stable Rust version for performance, safety, and ecosystem benefits.</td><td>High</td></tr>
+<tr><td>2</td><td>Doc book Policy</td><td>Documentation standards, structure, and tooling for high-quality docs.</td><td>High</td></tr>
+<tr><td>3</td><td>Task Scheduler Model</td><td>Coroutine-first, cooperative scheduling with stateful yield and resume semantics.</td><td>High</td></tr>
+<tr><td>4</td><td>Agent Loop and ReAct Design</td><td>Agent lifecycle: reasoning, acting, yielding, and tool interaction.</td><td>High</td></tr>
+<tr><td>5</td><td>Virtual Canvas Git Strategy</td><td>Code change tracking, patch application, and micro-commits.</td><td>Medium</td></tr>
+<tr><td>6</td><td>WAL Schema and Replay Policy</td><td>Write-ahead log format, recovery semantics, and log compaction.</td><td>High</td></tr>
+<tr><td>7</td><td>Process Activity Log (PAL)</td><td>Real-time activity tracking for agent tasks, complementing the WAL.</td><td>Medium</td></tr>
+<tr><td>8</td><td>Persistent Agent Memory Strategy</td><td>Neo4j semantic memory, graph structure, and retrieval policies for agent continuity.</td><td>High</td></tr>
+<tr><td>9</td><td>Code Structure Graph and Symbol Analysis</td><td>Graph-based code indexing and semantic AST analysis into Neo4j.</td><td>Medium</td></tr>
+<tr><td>10</td><td>Task Plan Timeline and Execution Metadata</td><td>Structure for task execution metadata, plan history, and decision lineage.</td><td>Medium</td></tr>
+<tr><td>11</td><td>Plugin and MCP Tooling Architecture</td><td>Integration of internal and external tools securely and generically.</td><td>High</td></tr>
+<tr><td>12</td><td>Agent Skill System (Future Plan)</td><td>Representation of agent capabilities as composable skills.</td><td>Medium</td></tr>
+<tr><td>13</td><td>Firecracker MicroVM Integration</td><td>VM lifecycle, execution isolation, and resource constraints.</td><td>High</td></tr>
+<tr><td>14</td><td>Command Execution and Safety Policy</td><td>Shell execution flow, trust boundaries, and <code>--yolo</code> mode considerations.</td><td>High</td></tr>
+<tr><td>15</td><td>REST/gRPC API Design</td><td>Interface contract for external task submission, result retrieval, and metadata queries.</td><td>High</td></tr>
+<tr><td>16</td><td>Filesystem Socket Protocol for CLI</td><td>Local interaction protocol for invoking agent actions via socket.</td><td>Medium</td></tr>
+<tr><td>17</td><td>Kubernetes Operator and CRD Design</td><td>Custom resource definitions for managing agent lifecycle and orchestration.</td><td>Medium</td></tr>
+<tr><td>18</td><td>Metrics Policy and Instrumentation Plan</td><td>Prometheus metrics structure, naming conventions, and dashboard philosophy.</td><td>Medium</td></tr>
+<tr><td>19</td><td>Logging Strategy and Span Hierarchy</td><td>Use of <code>tracing</code>, span lifecycles, and log level defaults.</td><td>Medium</td></tr>
+<tr><td>20</td><td>Versioning and Release Policy</td><td>Semantic versioning, LTS channels, and changelog protocol.</td><td>Medium</td></tr>
+<tr><td>21</td><td>Contributor Roles and Governance</td><td>Roles, responsibilities, PR review flow, and escalation path.</td><td>Medium</td></tr>
+<tr><td>22</td><td>Backup, Disaster Recovery, Failover</td><td>Policies for data recovery, backups, failover, and explicit RTO/RPO.</td><td>Critical</td></tr>
+<tr><td>23</td><td>Secrets and Credentials Management</td><td>Handling of secrets, keys, tokens, integration with vaults, and rotation policies.</td><td>Critical</td></tr>
+<tr><td>24</td><td>Authentication and Authorization</td><td>Secure authentication, RBAC, OAuth/OIDC, mTLS, and trust boundaries.</td><td>Critical</td></tr>
+<tr><td>25</td><td>Dependency Management and Update Policy</td><td>Management and update of dependencies, vulnerability scanning, and update policies.</td><td>High</td></tr>
+<tr><td>26</td><td>Performance and Scalability Strategy</td><td>Performance benchmarks, scalability tests, and optimization strategies.</td><td>High</td></tr>
+<tr><td>27</td><td>Localization and Internationalization</td><td>Handling of i18n, Unicode support, locale-aware formatting, and error handling.</td><td>Medium</td></tr>
+<tr><td>28</td><td>Compliance, Auditing, Regulatory Considerations</td><td>Compliance with privacy regulations, auditing, log retention, and reporting mechanisms.</td><td>High</td></tr>
+<tr><td>29</td><td>Data Retention and Privacy</td><td>Data retention policies, lifecycle management, and privacy guarantees.</td><td>High</td></tr>
+<tr><td>30</td><td>Cost Management and Budgeting</td><td>Cost monitoring, cloud usage, budgeting, and cost optimization strategies.</td><td>Medium</td></tr>
+<tr><td>31</td><td>Accessibility and Usability Guidelines</td><td>Ensuring interfaces are accessible, usable, and WCAG compliant.</td><td>Medium</td></tr>
+</tbody></table>
+</div>
+<hr />
+<h2 id="choice-of-rust-version"><a class="header" href="#choice-of-rust-version">Choice of Rust Version</a></h2>
+<ul>
+<li><strong>ADR-0001</strong>: Choice of Rust Version<br />
+Decision to use the latest stable Rust version for performance, safety, and ecosystem benefits.</li>
+</ul>
+<h2 id="doc-book-policy"><a class="header" href="#doc-book-policy">Doc book Policy</a></h2>
+<ul>
+<li><strong>ADR-0002</strong>: Doc book Policy<br />
+Documentation standards, structure, and tooling for maintaining high-quality project documentation.</li>
+</ul>
+<h2 id="-agent-architecture"><a class="header" href="#-agent-architecture">🧠 Agent Architecture</a></h2>
+<ul>
+<li>
+<p><strong>ADR-0003</strong>: Task Scheduler Model<br />
+Coroutine-first, cooperative scheduling with stateful yield and resume semantics.</p>
+</li>
+<li>
+<p><strong>ADR-0004</strong>: Agent Loop and ReAct Design<br />
+Lifecycle of an agent: reasoning, acting, yielding, and interacting with tools.</p>
+</li>
+<li>
+<p><strong>ADR-0005</strong>: Virtual Canvas Git Strategy<br />
+Strategy for code change tracking, patch application, and micro-commits.</p>
+</li>
+</ul>
+<hr />
+<h2 id="-storage--durability"><a class="header" href="#-storage--durability">📦 Storage &amp; Durability</a></h2>
+<ul>
+<li>
+<p><strong>ADR-0006</strong>: WAL Schema and Replay Policy<br />
+Format of write-ahead log, recovery semantics, and log compaction strategy.</p>
+</li>
+<li>
+<p><strong>ADR-0007</strong>: Process Activity Log (PAL)<br />
+Real-time activity tracking for agent tasks, complementing the WAL.</p>
+</li>
+<li>
+<p><strong>ADR-0008</strong>: Persistent Agent Memory Strategy<br />
+Design of Neo4j semantic memory, graph structure, and retrieval policies.
+Emphasize goals, prompts, plan recall, continuity between sessions.</p>
+</li>
+<li>
+<p><strong>ADR-0009</strong>: Code Structure Graph and Symbol Analysis
+graph-based code indexing and semantic AST analysis into
+Neo4j, enabling precise symbol tracking and refactoring intelligence.</p>
+</li>
+<li>
+<p><strong>ADR-0010</strong>: Task Plan Timeline and Execution Metadata
+Structure for task execution metadata, including plan history and decision lineage.</p>
+</li>
+</ul>
+<hr />
+<h2 id="-modularity--extensibility"><a class="header" href="#-modularity--extensibility">🧩 Modularity &amp; Extensibility</a></h2>
+<ul>
+<li>
+<p><strong>ADR-0011</strong>: Plugin and MCP Tooling Architecture<br />
+How Tiffany integrates internal and external tools securely and generically.</p>
+</li>
+<li>
+<p><strong>ADR-0012-</strong>: Agent Skill System (Future Plan)<br />
+Representation of agent capabilities as composable skills.</p>
+</li>
+</ul>
+<hr />
+<h2 id="-runtime--execution"><a class="header" href="#-runtime--execution">🔐 Runtime &amp; Execution</a></h2>
+<ul>
+<li>
+<p><strong>ADR-0013</strong>: Firecracker MicroVM Integration<br />
+VM lifecycle, execution isolation, resource constraints.</p>
+</li>
+<li>
+<p><strong>ADR-0014</strong>: Command Execution and Safety Policy<br />
+Shell execution flow, trust boundaries, and <code>--yolo</code> mode considerations.</p>
+</li>
+</ul>
+<hr />
+<h2 id="-interfacing--io"><a class="header" href="#-interfacing--io">📡 Interfacing &amp; I/O</a></h2>
+<ul>
+<li>
+<p><strong>ADR-0015</strong>: REST/gRPC API Design<br />
+Interface contract for external task submission, result retrieval, and metadata queries.</p>
+</li>
+<li>
+<p><strong>ADR-0016</strong>: Filesystem Socket Protocol for CLI<br />
+Local interaction protocol for invoking agent actions via socket.</p>
+</li>
+<li>
+<p><strong>ADR-0017</strong>: Kubernetes Operator and CRD Design
+Custom resource definitions for managing agent lifecycle and task orchestration.</p>
+</li>
+</ul>
+<hr />
+<h2 id="-observability"><a class="header" href="#-observability">🧪 Observability</a></h2>
+<ul>
+<li>
+<p><strong>ADR-0018</strong>: Metrics Policy and Instrumentation Plan<br />
+Prometheus metrics structure, naming conventions, and dashboard philosophy.</p>
+</li>
+<li>
+<p><strong>ADR-0019</strong>: Logging Strategy and Span Hierarchy<br />
+Use of <code>tracing</code>, span lifecycles, log level defaults.</p>
+</li>
+</ul>
+<hr />
+<h2 id="-governance--open-source"><a class="header" href="#-governance--open-source">🧭 Governance &amp; Open Source</a></h2>
+<ul>
+<li>
+<p><strong>ADR-0020</strong>: Versioning and Release Policy<br />
+Semantic versioning, LTS channels, changelog protocol.</p>
+</li>
+<li>
+<p><strong>ADR-0021</strong>: Contributor Roles and Governance<br />
+Roles, responsibilities, PR review flow, escalation path.</p>
+</li>
+</ul>
+<hr />
+<p><strong>22. Backup, Disaster Recovery, and Failover Strategy</strong></p>
+<ul>
+<li>Policies around data recovery, backups, and failover mechanisms.</li>
+<li>Clearly defines how agent memory, logs, and metadata are backed up.</li>
+<li>Explicit recovery process, RTO (Recovery Time Objective), and RPO (Recovery Point Objective).</li>
+</ul>
+<hr />
+<p><strong>23. Secrets and Credentials Management</strong></p>
+<ul>
+<li>Explicit handling of secrets, keys, tokens, and credentials.</li>
+<li>Integration with secure vaults (e.g., HashiCorp Vault, AWS Secrets Manager, Kubernetes Secrets).</li>
+<li>Auditing access and rotation policies.</li>
+</ul>
+<hr />
+<p><strong>24. Authentication and Authorization</strong></p>
+<ul>
+<li>How FAR agents, developers, and other components authenticate securely.</li>
+<li>Role-Based Access Control (RBAC), OAuth/OIDC integration, or mTLS approaches.</li>
+<li>Explicitly defined trust boundaries and security contexts.</li>
+</ul>
+<hr />
+<p><strong>25. Dependency Management and Update Policy</strong></p>
+<ul>
+<li>Management and update processes for third-party libraries, Rust crates, Kubernetes components, and container images.</li>
+<li>Vulnerability scanning and patching procedures.</li>
+<li>Policies around dependency updates, deprecations, and removals.</li>
+</ul>
+<hr />
+<p><strong>26. Performance and Scalability Strategy</strong></p>
+<ul>
+<li>Detailed performance benchmarks, scalability tests, and capacity planning.</li>
+<li>Horizontal vs. vertical scaling policies.</li>
+<li>Strategies for proactive performance optimization and reactive capacity adjustments.</li>
+</ul>
+<hr />
+<p><strong>27. Localization and Internationalization (i18n) Policy</strong></p>
+<ul>
+<li>How the system will handle internationalization, localization, and multilingual capabilities.</li>
+<li>Consideration of Unicode support, locale-aware formatting, and error handling.</li>
+</ul>
+<hr />
+<p><strong>28. Compliance, Auditing, and Regulatory Considerations</strong></p>
+<ul>
+<li>Compliance with privacy regulations (GDPR, CCPA), standards (SOC 2, ISO 27001).</li>
+<li>Auditing policies, log retention strategies, and compliance reporting mechanisms.</li>
+</ul>
+<hr />
+<p><strong>29. Data Retention and Privacy</strong></p>
+<ul>
+<li>Explicit data retention policies, data lifecycle management, and privacy guarantees.</li>
+<li>Handling and protection of personally identifiable information (PII), if relevant.</li>
+</ul>
+<hr />
+<p><strong>30. Cost Management and Budgeting</strong></p>
+<ul>
+<li>Explicit policies around cost monitoring, cloud usage, and resource budgeting.</li>
+<li>Alerting on cost overruns, proactive cost management strategies, and cost optimization.</li>
+</ul>
+<hr />
+<p><strong>31. Accessibility and Usability Guidelines</strong></p>
+<ul>
+<li>Ensuring the interfaces (CLI, UI, documentation) are accessible and usable.</li>
+<li>Compliance with WCAG accessibility standards.</li>
+</ul>
+<hr />
+<div style="break-before: page; page-break-before: always;"></div><h1 id="adr-0003-task-scheduler-model"><a class="header" href="#adr-0003-task-scheduler-model">ADR-0003: Task Scheduler Model</a></h1>
+<h2 id="status"><a class="header" href="#status">Status</a></h2>
+<p>Accepted</p>
+<h2 id="context"><a class="header" href="#context">Context</a></h2>
+<p>Tiffany operates as a coroutine-oriented, agentic runtime designed for reasoning, acting, and tool orchestration. Core to this architecture is a <strong>cooperative task scheduler</strong> responsible for managing:</p>
+<ul>
+<li>Long-running agent workflows</li>
+<li>Step-wise ReAct loops</li>
+<li>Concurrent tool invocations</li>
+<li>Cancelable task execution</li>
+</ul>
+<p>As of Rust 2024, first-class coroutines provide an ideal primitive for implementing these requirements with clarity and zero-cost abstraction.</p>
+<p>This ADR defines our <strong>task scheduling model</strong>, the task lifecycle states, the yield/resume semantics, and how the system will structure and manage cooperative multitasking.</p>
+<hr />
+<h2 id="decision"><a class="header" href="#decision">Decision</a></h2>
+<p>We will implement a coroutine-first, cooperative <strong>task scheduler</strong> with the following characteristics:</p>
+<h3 id="-task-type"><a class="header" href="#-task-type">🧵 Task Type</a></h3>
+<ul>
+<li>All tasks will be represented by a unified trait:</li>
+</ul>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>trait AgentTask {
+    fn poll(&amp;mut self, ctx: &amp;mut TaskContext) -&gt; TaskState;
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="-task-states"><a class="header" href="#-task-states">📐 Task States</a></h3>
+<p>Tasks can exist in the following explicit states:</p>
+<ul>
+<li><code>Ready</code> – enqueued for execution</li>
+<li><code>Running</code> – currently executing</li>
+<li><code>Waiting</code> – yielded for tool response or LLM</li>
+<li><code>Completed</code> – finished with result or error</li>
+<li><code>Canceled</code> – forcibly stopped</li>
+</ul>
+<h3 id="-yieldresume-semantics"><a class="header" href="#-yieldresume-semantics">🔄 Yield/Resume Semantics</a></h3>
+<p>Tasks may yield cooperatively during:</p>
+<ul>
+<li>LLM calls</li>
+<li>Tool executions</li>
+<li>User confirmations</li>
+<li>Awaiting subprocess completion</li>
+</ul>
+<h3 id="-runtime-loop"><a class="header" href="#-runtime-loop">🧰 Runtime Loop</a></h3>
+<p>The scheduler will:</p>
+<ul>
+<li>Poll each <code>Ready</code> task</li>
+<li>Route yielded work (e.g. to LLM executor or tool manager)</li>
+<li>Queue task back when dependency resolves</li>
+</ul>
+<h3 id="-goals"><a class="header" href="#-goals">🧭 Goals</a></h3>
+<ul>
+<li>Deterministic, testable behavior</li>
+<li>Serializable/resumable task state</li>
+<li>Decoupled from <code>tokio::spawn</code> or native threads</li>
+<li>Pluggable scheduling policy (FIFO, priority, dependency-aware)</li>
+</ul>
+<hr />
+<h2 id="rationale"><a class="header" href="#rationale">Rationale</a></h2>
+<h3 id="-cooperative-vs-preemptive"><a class="header" href="#-cooperative-vs-preemptive">🔁 Cooperative vs Preemptive</a></h3>
+<p>Tiffany requires transparent control over task transitions. Preemptive systems (e.g. thread pools) make it difficult to audit agent state or model planning steps. Cooperative coroutines, by contrast, allow us to:</p>
+<ul>
+<li>Yield at semantic boundaries</li>
+<li>Inject logs and metrics at every step</li>
+<li>Serialize/resume entire task graphs</li>
+</ul>
+<h3 id="-agent-design-requires-suspended-thought"><a class="header" href="#-agent-design-requires-suspended-thought">🧠 Agent Design Requires Suspended Thought</a></h3>
+<p>An agent might:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let plan = yield plan_with_llm("Build test harness");
+for step in plan.steps {
+    yield apply_code_diff(step);
+    yield confirm_with_user(step);
+}
+<span class="boring">}</span></code></pre></pre>
+<p>This structure is naturally represented with a coroutine and state machine — not an async future.</p>
+<h3 id="-testability"><a class="header" href="#-testability">🧪 Testability</a></h3>
+<p>We can model agent execution using deterministic stepping:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut scheduler = TestScheduler::new();
+scheduler.inject_mock_tool("ls", "result");
+scheduler.step_until_idle();
+assert_eq!(scheduler.task_state(task_id), TaskState::Completed);
+<span class="boring">}</span></code></pre></pre>
+<p>This level of control is difficult in actor or spawn-based models.</p>
+<h3 id="-integration-simplicity"><a class="header" href="#-integration-simplicity">📦 Integration Simplicity</a></h3>
+<p>The scheduler serves as glue between:</p>
+<ul>
+<li>LLM router</li>
+<li>Tool executor</li>
+<li>WAL</li>
+<li>Canvas</li>
+</ul>
+<p>Having a single poll-loop mediator makes integration simpler and easier to visualize.</p>
+<hr />
+<h2 id="consequences"><a class="header" href="#consequences">Consequences</a></h2>
+<ul>
+<li>Adds internal coroutine scheduler as a first-class subsystem</li>
+<li>Task implementations will need to support resumable <code>poll()</code> style execution</li>
+<li><code>Executor</code>, <code>LLM</code>, and <code>Tool</code> interfaces will interact through message passing / callbacks with the scheduler</li>
+<li>CI tests will include end-to-end scheduling tests using mocked yield points</li>
+</ul>
+<hr />
+<h2 id="alternatives-considered"><a class="header" href="#alternatives-considered">Alternatives Considered</a></h2>
+<ul>
+<li><strong>Tokio TaskPool</strong>: Too opaque for agentic step control; no built-in yield</li>
+<li><strong>Actor Model (e.g., <code>actix</code>)</strong>: Good for I/O, but overkill for structured flows</li>
+<li><strong><code>futures</code>-based step machines</strong>: Verbose, brittle, not coroutine-native</li>
+</ul>
+<hr />
+<h2 id="related-documents"><a class="header" href="#related-documents">Related Documents</a></h2>
+<ul>
+<li><a href="adr/../whitepapers/Tiffany%20System%20Architecture%20and%20Design%20Overview.html">Tiffany System Architecture</a></li>
+<li><a href="http://www.dabeaz.com/coroutines/pyos8.py">pyos8.py (Coroutine OS)</a></li>
+<li><a href="adr/adr_0001_rust_version.html">ADR-0001: Rust 2024 Coroutine Adoption</a></li>
+</ul>
+<hr />
+<h2 id="adopted"><a class="header" href="#adopted">Adopted</a></h2>
+<p>This ADR is accepted as of June 2025. All internal workflows that require suspendable agent behavior will be modeled as <code>AgentTask</code>s and scheduled cooperatively.</p>
+<p>Maintainers: <code>@casibbald</code>, <code>@microscaler-team</code></p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="adr-0006-wal-schema-and-replay-policy"><a class="header" href="#adr-0006-wal-schema-and-replay-policy">ADR-0006: WAL Schema and Replay Policy</a></h1>
+<h2 id="status-1"><a class="header" href="#status-1">Status</a></h2>
+<p>Accepted</p>
+<h2 id="context-1"><a class="header" href="#context-1">Context</a></h2>
+<p>The Write-Ahead Log (WAL) in Tiffany provides durable, append-only storage for agent activity, execution steps, and Git-integrated state transitions. It is a core component in ensuring fault tolerance, crash recovery, and task auditability.</p>
+<p>As the Tiffany agent runtime handles multiple concurrent tasks, LLM responses, tool invocations, and virtual canvas operations, the WAL must encode enough structured information to allow:</p>
+<ul>
+<li>Resuming interrupted tasks</li>
+<li>Replaying task progress deterministically</li>
+<li>Cross-checking Git commit state and canvas deltas</li>
+</ul>
+<p>This ADR defines the structure, persistence policy, replay semantics, and integrity guarantees of the WAL.</p>
+<hr />
+<h2 id="decision-1"><a class="header" href="#decision-1">Decision</a></h2>
+<p>We adopt a structured, JSON-encoded, append-only WAL system with the following characteristics:</p>
+<h3 id="wal-file-format"><a class="header" href="#wal-file-format">WAL File Format</a></h3>
+<ul>
+<li>File-based, append-only per task context (e.g. <code>wal/&lt;uuid&gt;.wal</code>)</li>
+<li>Each line is a valid JSON object (<code>serde_json::to_writer</code>)</li>
+<li>Log entries are versioned via a top-level <code>"v"</code> field</li>
+</ul>
+<h3 id="wal-entry-types"><a class="header" href="#wal-entry-types">WAL Entry Types</a></h3>
+<pre><code class="language-json">{
+  "v": 1,
+  "ts": "2025-06-27T15:48:00Z",
+  "type": "InstructionStart",
+  "task_id": "uuid",
+  "instruction": "Add validation to model.rs"
+}
+</code></pre>
+<p>Supported entry types:</p>
+<ul>
+<li><code>InstructionStart</code> — original user input</li>
+<li><code>LLMPlan</code> — response from LLM with plan steps</li>
+<li><code>StepStart</code> — beginning of a plan step</li>
+<li><code>ToolResult</code> — tool output or error</li>
+<li><code>PatchPreview</code> — virtual diff preview</li>
+<li><code>Commit</code> — Git commit metadata (SHA, message)</li>
+<li><code>TaskComplete</code> — signal of end of task (with success/failure)</li>
+<li><code>ShutdownMarker</code> — graceful termination marker</li>
+</ul>
+<h3 id="storage-model"><a class="header" href="#storage-model">Storage Model</a></h3>
+<ul>
+<li>Each agent task has a dedicated WAL file</li>
+<li>Optionally streamed to external durable store (e.g. S3, versioned blob)</li>
+<li>Index is built in-memory on load for efficient lookup</li>
+</ul>
+<h3 id="flush-policy"><a class="header" href="#flush-policy">Flush Policy</a></h3>
+<ul>
+<li>WAL entries are fsynced after each write</li>
+<li>Entries are buffered briefly for I/O optimization, but never cached in-memory only</li>
+</ul>
+<hr />
+<h2 id="replay-semantics"><a class="header" href="#replay-semantics">Replay Semantics</a></h2>
+<p>On startup or recovery, the WAL replay engine:</p>
+<ul>
+<li>Reads all entries into a memory index</li>
+<li>Validates log ordering and checks for <code>TaskComplete</code> or <code>ShutdownMarker</code></li>
+<li>If incomplete, reconstructs TaskState:
+<ul>
+<li>Current plan</li>
+<li>Last confirmed step index</li>
+<li>Last Git SHA</li>
+<li>Virtual canvas snapshot (if recoverable)</li>
+</ul>
+</li>
+</ul>
+<h3 id="recovery-modes"><a class="header" href="#recovery-modes">Recovery Modes</a></h3>
+<ul>
+<li><code>resume</code>: continue from last known state</li>
+<li><code>inspect</code>: dry-run and summarize partial progress</li>
+<li><code>replay</code>: re-run steps for reproducibility / audit</li>
+</ul>
+<hr />
+<h2 id="wal-lifecycle-sequence-diagram"><a class="header" href="#wal-lifecycle-sequence-diagram">WAL Lifecycle Sequence Diagram</a></h2>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant User
+    participant Agent
+    participant WAL
+    participant LLM
+    participant Tool
+    participant Canvas
+    participant Git
+    participant ReplayEngine
+
+    User-&gt;&gt;Agent: Submit task ("Add error handling")
+    Agent-&gt;&gt;WAL: Write InstructionStart
+    Agent-&gt;&gt;LLM: Plan steps
+    LLM--&gt;&gt;Agent: Return plan
+    Agent-&gt;&gt;WAL: Write LLMPlan
+
+    loop For each step
+        Agent-&gt;&gt;WAL: Write StepStart
+        Agent-&gt;&gt;Tool: Execute action
+        Tool--&gt;&gt;Agent: Output result
+        Agent-&gt;&gt;WAL: Write ToolResult
+        Agent-&gt;&gt;Canvas: Apply virtual patch
+        Canvas--&gt;&gt;Agent: Preview diff
+        Agent-&gt;&gt;WAL: Write PatchPreview
+        Agent-&gt;&gt;Git: Commit via git2-rs
+        Git--&gt;&gt;Agent: Commit SHA
+        Agent-&gt;&gt;WAL: Write Commit (with SHA, step index)
+    end
+
+    Agent-&gt;&gt;WAL: Write TaskComplete
+    Agent--&gt;&gt;User: Respond with summary
+
+    Note over ReplayEngine: On Recovery or Restart
+    ReplayEngine-&gt;&gt;WAL: Read task WAL file
+    WAL--&gt;&gt;ReplayEngine: JSON entries
+    ReplayEngine-&gt;&gt;ReplayEngine: Rebuild plan, canvas, Git context
+    ReplayEngine-&gt;&gt;Agent: Resume at next step or verify TaskComplete
+</code></pre>
+<hr />
+<h2 id="rationale-1"><a class="header" href="#rationale-1">Rationale</a></h2>
+<h3 id="-durability--crash-safety"><a class="header" href="#-durability--crash-safety">🔐 Durability &amp; Crash Safety</a></h3>
+<ul>
+<li>WAL ensures no task progress is lost</li>
+<li>Every instruction, LLM plan, tool call, and Git commit is accounted for</li>
+</ul>
+<h3 id="-reproducibility"><a class="header" href="#-reproducibility">🧪 Reproducibility</a></h3>
+<ul>
+<li>WAL enables deterministic re-execution of tasks</li>
+<li>Allows audit of LLM decisions, tool usage, and user confirmations</li>
+</ul>
+<h3 id="-debug--forensics"><a class="header" href="#-debug--forensics">🧰 Debug &amp; Forensics</a></h3>
+<ul>
+<li>WAL becomes a source of truth in debugging stuck or incomplete tasks</li>
+<li>WAL diffs explain when/why things diverged from expected flow</li>
+</ul>
+<h3 id="-integration-with-canvas--git"><a class="header" href="#-integration-with-canvas--git">⚙️ Integration with Canvas &amp; Git</a></h3>
+<ul>
+<li>Each canvas commit references its corresponding WAL entry</li>
+<li>Reconstructing canvas state on restart uses last committed patch snapshot</li>
+</ul>
+<hr />
+<h2 id="consequences-1"><a class="header" href="#consequences-1">Consequences</a></h2>
+<ul>
+<li>WAL writer must be thread-safe and coroutine-aware</li>
+<li>Every <code>AgentTask</code> must emit structured WAL entries</li>
+<li>On crash or power loss, agent must recover cleanly to last <code>Commit</code> or <code>PatchPreview</code></li>
+<li><code>cargo test</code> must include WAL replay + recovery unit tests</li>
+</ul>
+<hr />
+<h2 id="alternatives-considered-1"><a class="header" href="#alternatives-considered-1">Alternatives Considered</a></h2>
+<ul>
+<li><strong>Single journal file for all tasks</strong>: Difficult to parallelize, isolate, or replay</li>
+<li><strong>Database-backed log</strong>: Overkill, less portable, breaks GitOps principle</li>
+<li><strong>Binary format</strong>: More compact, but less debuggable and interoperable than JSON</li>
+</ul>
+<hr />
+<h2 id="related-documents-1"><a class="header" href="#related-documents-1">Related Documents</a></h2>
+<ul>
+<li><a href="adr/adr_0005_virtual_canvas_gitops.html">ADR-0005: Virtual Canvas and GitOps Strategy</a></li>
+<li><a href="adr/adr_0004_agent_loop_react.html">ADR-0004: Agent Loop and ReAct Design</a></li>
+</ul>
+<hr />
+<h2 id="adopted-1"><a class="header" href="#adopted-1">Adopted</a></h2>
+<p>This ADR is accepted as of June 2025. All agent tasks will be tracked through structured, append-only WAL files to ensure traceability, auditability, and deterministic task recovery.</p>
+<p>Maintainers: <code>@casibbald</code>, `@microscaler-team</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="adr-0007-process-activity-log-pal-and-real-time-status-stream"><a class="header" href="#adr-0007-process-activity-log-pal-and-real-time-status-stream">ADR-0007: Process Activity Log (PAL) and Real-Time Status Stream</a></h1>
+<h2 id="status-2"><a class="header" href="#status-2">Status</a></h2>
+<p>Accepted</p>
+<h2 id="context-2"><a class="header" href="#context-2">Context</a></h2>
+<p>While the Write-Ahead Log (WAL) guarantees task durability and auditability in Tiffany, it is not suited for <strong>real-time observability</strong>. Users and dashboards need visibility into what the system is currently doing — not just what it has already persisted.</p>
+<p>To address this, we introduce the <strong>Process Activity Log (PAL)</strong>, a real-time, ephemeral streaming mechanism for broadcasting the active state of each agent task as it progresses through its coroutine lifecycle.</p>
+<p>The PAL augments the WAL by offering live introspection into step-level execution, LLM calls, tool activity, patching, and user confirmation — enabling powerful local CLI feedback, remote dashboards, and multi-user observability.</p>
+<p>PALs are not commonly implemented in most systems. However, in the context of an agentic runtime with coroutine yield points, explicit steps, and Git-integrated patching, <strong>the value of live process state becomes critically important</strong> for:</p>
+<ul>
+<li>Progress visibility during long-running operations</li>
+<li>Safe human-in-the-loop oversight</li>
+<li>Remote system administration and dashboarding</li>
+<li>Collaborative multi-user environments</li>
+</ul>
+<hr />
+<h2 id="decision-2"><a class="header" href="#decision-2">Decision</a></h2>
+<p>Tiffany will maintain a separate PAL channel per running task, broadcasting structured <code>ActivityEvent</code> objects to all connected consumers (CLI, dashboards, logs).</p>
+<h3 id="pal-characteristics"><a class="header" href="#pal-characteristics">PAL Characteristics</a></h3>
+<ul>
+<li>Non-durable, ephemeral (not fsynced or written to disk)</li>
+<li>Optimized for streaming, not audit</li>
+<li>Broadcast to:
+<ul>
+<li>Local CLI (via Unix domain socket)</li>
+<li>Remote UI (via WebSocket/gRPC stream)</li>
+<li>Logging adapter (optional)</li>
+<li>Pub/Sub (e.g., Redis Streams, NATS, Fluvio, etc.)</li>
+</ul>
+</li>
+</ul>
+<h3 id="event-schema"><a class="header" href="#event-schema">Event Schema</a></h3>
+<pre><code class="language-json">{
+  "ts": "2025-06-27T16:12:00Z",
+  "task_id": "uuid",
+  "stage": "ExecutingTool",
+  "message": "Running shell: cargo test"
+}
+</code></pre>
+<h3 id="pal-event-types"><a class="header" href="#pal-event-types">PAL Event Types</a></h3>
+<ul>
+<li><code>ReceivedInstruction</code></li>
+<li><code>WaitingForLLM</code></li>
+<li><code>ToolExecutionStart</code></li>
+<li><code>ToolExecutionComplete</code></li>
+<li><code>PreviewingPatch</code></li>
+<li><code>AwaitingUserApproval</code></li>
+<li><code>CommittingPatch</code></li>
+<li><code>Idle</code></li>
+<li><code>Completed</code></li>
+</ul>
+<h3 id="pal-channel-infrastructure"><a class="header" href="#pal-channel-infrastructure">PAL Channel Infrastructure</a></h3>
+<ul>
+<li>Each Tiffany runtime instance will maintain an async broadcast stream (<code>tokio::broadcast</code>) for each task</li>
+<li>The CLI and UI connect as <strong>subscribers</strong>, filtered by task ID</li>
+<li>Internal PAL server optionally bridges these into REST, WebSocket, or external pub/sub systems</li>
+</ul>
+<hr />
+<h2 id="sequence-diagram-pal-streaming-in-action"><a class="header" href="#sequence-diagram-pal-streaming-in-action">Sequence Diagram: PAL Streaming in Action</a></h2>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant User
+    participant CLI
+    participant UI
+    participant Agent
+    participant PAL
+    participant WAL
+    participant PubSub
+
+    User-&gt;&gt;CLI: tinkerbell submit "Add validation to model.rs"
+    CLI-&gt;&gt;Agent: Submit instruction
+    Agent-&gt;&gt;WAL: Log InstructionStart
+    Agent-&gt;&gt;PAL: Emit ReceivedInstruction
+    PAL--&gt;&gt;CLI: Stream activity
+    PAL--&gt;&gt;UI: WebSocket push
+    PAL--&gt;&gt;PubSub: Fan-out event (optional)
+
+    Agent-&gt;&gt;PAL: Emit WaitingForLLM
+    Agent-&gt;&gt;LLM: Generate plan
+    LLM--&gt;&gt;Agent: Return plan
+    Agent-&gt;&gt;PAL: Emit ToolExecutionStart ("Running shell tool")
+    Agent-&gt;&gt;Tool: Execute shell script
+    Tool--&gt;&gt;Agent: Result
+    Agent-&gt;&gt;PAL: Emit ToolExecutionComplete
+    Agent-&gt;&gt;Canvas: Apply patch
+    Agent-&gt;&gt;PAL: Emit PreviewingPatch
+    Agent-&gt;&gt;User: Confirm patch
+    User--&gt;&gt;Agent: Approve
+    Agent-&gt;&gt;PAL: Emit CommittingPatch
+    Agent-&gt;&gt;Git: Commit
+    Agent-&gt;&gt;PAL: Emit Completed
+    Agent-&gt;&gt;WAL: Log TaskComplete
+</code></pre>
+<hr />
+<h2 id="rationale-2"><a class="header" href="#rationale-2">Rationale</a></h2>
+<h3 id="-real-time-feedback-for-humans"><a class="header" href="#-real-time-feedback-for-humans">✅ Real-Time Feedback for Humans</a></h3>
+<p>Unlike WALs — which are audit-focused and write-after-the-fact — the PAL is designed to <strong>describe what the agent is doing right now</strong>.</p>
+<p>This enables:</p>
+<ul>
+<li><strong>CLI progress bars, spinners, and log overlays</strong></li>
+<li><strong>Remote dashboards that track multiple agents in real time</strong></li>
+<li><strong>Streaming logs with contextual status annotations</strong></li>
+<li><strong>System admins to monitor all active workloads in the FAR runtime</strong></li>
+</ul>
+<h3 id="-pubsub-observability"><a class="header" href="#-pubsub-observability">📟 Pub/Sub Observability</a></h3>
+<p>PAL emits can be optionally bridged to:</p>
+<ul>
+<li>Redis Streams</li>
+<li>NATS subjects</li>
+<li>Kafka partitions</li>
+</ul>
+<p>This enables:</p>
+<ul>
+<li>Multiple UIs to subscribe to live activity</li>
+<li>Alerting and event-driven monitoring pipelines</li>
+<li>Prometheus exporters to map PAL events to gauge metrics</li>
+</ul>
+<h3 id="-complements-wal-without-overlapping-it"><a class="header" href="#-complements-wal-without-overlapping-it">🧩 Complements WAL without Overlapping It</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Feature</th><th>WAL (Write-Ahead Log)</th><th>PAL (Process Activity Log)</th></tr></thead><tbody>
+<tr><td>Format</td><td>Append-only, structured JSON</td><td>Broadcast JSON, ephemeral</td></tr>
+<tr><td>Scope</td><td>Durable system of record</td><td>Live visibility per active task</td></tr>
+<tr><td>Persistence</td><td>Filesystem</td><td>Memory / socket / stream</td></tr>
+<tr><td>Usage</td><td>Replay, recovery, audit</td><td>CLI/UI visibility, status updates</td></tr>
+<tr><td>Timing</td><td>After the fact</td><td>Concurrent with step execution</td></tr>
+</tbody></table>
+</div>
+<hr />
+<h2 id="consequences-2"><a class="header" href="#consequences-2">Consequences</a></h2>
+<ul>
+<li>Introduces a lightweight PAL layer into each <code>AgentTask</code></li>
+<li>Developers must emit PAL signals at major yield boundaries</li>
+<li>CLI and UI must support PAL subscription and display logic</li>
+<li>Integration tests will include PAL mock subscribers for validation</li>
+<li>PAL memory usage must be bounded (e.g. backpressure if no consumer)</li>
+</ul>
+<hr />
+<h2 id="alternatives-considered-2"><a class="header" href="#alternatives-considered-2">Alternatives Considered</a></h2>
+<ul>
+<li><strong>Extending WAL with ephemeral events</strong> – Pollutes durability layer; delays update timing</li>
+<li><strong>Relying on console logs</strong> – Not structured, not streamable, not indexable by UI</li>
+<li><strong>Polling task status</strong> – Inefficient and fails in multi-user concurrent settings</li>
+</ul>
+<hr />
+<h2 id="related-documents-2"><a class="header" href="#related-documents-2">Related Documents</a></h2>
+<ul>
+<li><a href="adr/adr_0006_wal_schema_replay.html">ADR-0006: WAL Schema and Replay Policy</a></li>
+<li><a href="adr/adr_0004_agent_loop_react.html">ADR-0004: Agent Loop and ReAct Design</a></li>
+<li><a href="adr/../whitepapers/Tiffany%20System%20Architecture%20and%20Design%20Overview.html">Tiffany System Architecture</a></li>
+</ul>
+<hr />
+<h2 id="adopted-2"><a class="header" href="#adopted-2">Adopted</a></h2>
+<p>This ADR is accepted as of June 2025. All running agent tasks will emit real-time PAL events through an ephemeral pub-sub system to enable responsive CLI feedback, multi-user UI dashboards, and remote introspection.</p>
+<p>Maintainers: <code>@casibbald</code>, <code>@microscaler-team</code></p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="adr-0019-logging-strategy-and-span-hierarchy"><a class="header" href="#adr-0019-logging-strategy-and-span-hierarchy">ADR-0019: Logging Strategy and Span Hierarchy</a></h1>
+<h2 id="status-3"><a class="header" href="#status-3">Status</a></h2>
+<p>Proposed</p>
+<hr />
+<h2 id="context-3"><a class="header" href="#context-3">Context</a></h2>
+<p>Effective logging is vital for the observability, debugging, and operational transparency of autonomous agentic runtimes. Without structured logging and detailed execution tracing, debugging complex distributed operations becomes difficult, leading to increased operational overhead and reduced system reliability.</p>
+<p>Common issues in logging for complex systems include:</p>
+<ul>
+<li><strong>Unstructured logs:</strong> Difficult to parse or correlate.</li>
+<li><strong>Lack of contextual tracing:</strong> Limited ability to trace execution flow or diagnose issues.</li>
+<li><strong>Inconsistent log levels and verbosity:</strong> Excessive noise or insufficient detail for meaningful debugging.</li>
+</ul>
+<p>To address these, Tiffany requires a rigorous, structured logging strategy that leverages Rust’s advanced <strong>tracing</strong> framework, clear span hierarchies, structured logs, and consistent log level defaults.</p>
+<hr />
+<h2 id="decision-3"><a class="header" href="#decision-3">Decision</a></h2>
+<p>We adopt the Rust <strong>tracing</strong> crate for structured logging and detailed tracing within Tiffany FAR infrastructure, explicitly defining span hierarchies, structured log events, and log level policies.</p>
+<h3 id="core-components-1"><a class="header" href="#core-components-1">Core Components:</a></h3>
+<ul>
+<li><strong>Structured Logging:</strong> Use of <code>tracing</code> with structured, JSON-formatted log outputs.</li>
+<li><strong>Detailed Span Hierarchy:</strong> Explicit tracing spans for every significant operation (task execution, VM lifecycle events, API calls).</li>
+<li><strong>Consistent Log Levels:</strong> Clearly defined log level defaults (ERROR, WARN, INFO, DEBUG, TRACE).</li>
+</ul>
+<hr />
+<h2 id="technical-implementation"><a class="header" href="#technical-implementation">Technical Implementation</a></h2>
+<h3 id="1-structured-logging-with-rust-tracing"><a class="header" href="#1-structured-logging-with-rust-tracing">1. Structured Logging with Rust <code>tracing</code></a></h3>
+<p>Tiffany will adopt Rust’s <code>tracing</code> crate, providing structured logs for better parseability and integration with modern log management systems.</p>
+<p><strong>Log event format (JSON example):</strong></p>
+<pre><code class="language-json">{
+  "timestamp": "2025-06-28T10:00:00Z",
+  "level": "INFO",
+  "target": "tinkerbell::orchestrator",
+  "message": "Task execution started",
+  "fields": {
+    "task_id": "task-12345",
+    "agent_id": "agent-67890",
+    "node": "blade-1"
+  }
+}
+</code></pre>
+<h3 id="2-explicit-span-hierarchy"><a class="header" href="#2-explicit-span-hierarchy">2. Explicit Span Hierarchy</a></h3>
+<p>Spans explicitly represent the hierarchy and nesting of tasks, operations, and system interactions.</p>
+<p><strong>Example span hierarchy structure:</strong></p>
+<pre><code class="language-plaintext">Agent Task Execution [trace_id=abc123]
+├── Orchestrator Scheduling
+│   └── Resource Allocation
+├── FAR Agent VM Lifecycle
+│   ├── VM Initialization
+│   ├── Capability Execution
+│   │   └── LLM Interaction
+│   └── VM Termination
+└── Result Reporting
+</code></pre>
+<h3 id="3-span-lifecycle-management"><a class="header" href="#3-span-lifecycle-management">3. Span Lifecycle Management</a></h3>
+<p>Span lifecycle strictly managed using Rust's tracing macros (<code>span!</code>, <code>.enter()</code>, <code>.exit()</code>), clearly delineating entry and exit points:</p>
+<p><strong>Rust tracing code example:</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use tracing::{span, Level};
+
+fn execute_task(task_id: &amp;str) {
+    let task_span = span!(Level::INFO, "task_execution", task_id = task_id);
+    let _enter = task_span.enter();
+
+    schedule_task();
+    execute_vm_lifecycle();
+    report_results();
+}
+
+fn execute_vm_lifecycle() {
+    let vm_span = span!(Level::DEBUG, "vm_lifecycle");
+    let _enter = vm_span.enter();
+
+    vm_initialization();
+    capability_execution();
+    vm_termination();
+}
+<span class="boring">}</span></code></pre></pre>
+<hr />
+<h3 id="4-log-level-defaults"><a class="header" href="#4-log-level-defaults">4. Log Level Defaults</a></h3>
+<p>Explicit guidelines on log levels:</p>
+<div class="table-wrapper"><table><thead><tr><th>Level</th><th>Use-case Example</th><th>Retention Policy</th></tr></thead><tbody>
+<tr><td>ERROR</td><td>Critical failures requiring immediate attention</td><td>High priority</td></tr>
+<tr><td>WARN</td><td>Issues potentially impacting normal operation</td><td>High-medium priority</td></tr>
+<tr><td>INFO</td><td>General operational events and high-level status</td><td>Medium priority</td></tr>
+<tr><td>DEBUG</td><td>Detailed events useful for debugging</td><td>Short-term, detailed</td></tr>
+<tr><td>TRACE</td><td>Highly detailed events, rarely enabled in production</td><td>Temporary debugging</td></tr>
+</tbody></table>
+</div>
+<p>Default log levels: <strong>INFO</strong> in production, <strong>DEBUG</strong> in staging, <strong>TRACE</strong> optionally during local development.</p>
+<hr />
+<h2 id="-diagram-span-hierarchy-visualization"><a class="header" href="#-diagram-span-hierarchy-visualization">📊 Diagram: Span Hierarchy Visualization</a></h2>
+<pre><code class="language-mermaid">graph TD
+  Task[Task Execution - INFO]
+  Task --&gt; Scheduling[Orchestrator Scheduling - INFO]
+  Scheduling --&gt; Allocation[Resource Allocation - DEBUG]
+
+  Task --&gt; VM[FAR Agent VM Lifecycle - INFO]
+  VM --&gt; VM_Init[VM Initialization - DEBUG]
+  VM --&gt; Capability[Capability Execution - DEBUG]
+  Capability --&gt; LLM_Interaction[LLM Interaction - TRACE]
+  VM --&gt; VM_Termination[VM Termination - DEBUG]
+
+  Task --&gt; Reporting[Result Reporting - INFO]
+</code></pre>
+<hr />
+<h2 id="-sequence-diagram-logging-and-span-lifecycle"><a class="header" href="#-sequence-diagram-logging-and-span-lifecycle">🔄 Sequence Diagram: Logging and Span Lifecycle</a></h2>
+<pre><code class="language-mermaid">sequenceDiagram
+  participant FAR Controller
+  participant Orchestrator
+  participant MicroVM (FAR Agent)
+  participant PAL/WAL
+  participant Log Collector (Elastic/Loki)
+
+  FAR Controller-&gt;&gt;Log Collector (Elastic/Loki): Log (INFO): "Task execution started"
+  Orchestrator-&gt;&gt;Log Collector (Elastic/Loki): Log (DEBUG): "Scheduling task, resource allocation started"
+
+  Orchestrator-&gt;&gt;MicroVM (FAR Agent): Start MicroVM
+  MicroVM (FAR Agent)-&gt;&gt;Log Collector (Elastic/Loki): Log (INFO): "VM initialization successful"
+  MicroVM (FAR Agent)-&gt;&gt;Log Collector (Elastic/Loki): Log (TRACE): "LLM interaction started"
+  MicroVM (FAR Agent)-&gt;&gt;Log Collector (Elastic/Loki): Log (DEBUG): "Capability execution completed"
+
+  MicroVM (FAR Agent)-&gt;&gt;Orchestrator: Task completion
+  Orchestrator-&gt;&gt;Log Collector (Elastic/Loki): Log (INFO): "Result reporting complete"
+
+  FAR Controller-&gt;&gt;PAL/WAL: Record final task state
+</code></pre>
+<hr />
+<h2 id="-rationale-for-chosen-approach"><a class="header" href="#-rationale-for-chosen-approach">🎯 Rationale for Chosen Approach</a></h2>
+<ul>
+<li><strong>Structured &amp; Parseable Logs:</strong> Enhanced operational visibility, easier integration with log aggregation solutions.</li>
+<li><strong>Detailed Tracing and Debugging:</strong> Explicit span hierarchies enable precise debugging and operational insights.</li>
+<li><strong>Clear Log Level Policy:</strong> Reduces noise and improves the clarity and signal-to-noise ratio of logs.</li>
+</ul>
+<hr />
+<h2 id="-consequences-and-trade-offs"><a class="header" href="#-consequences-and-trade-offs">🚨 Consequences and Trade-offs</a></h2>
+<ul>
+<li><strong>Complexity of Span Management:</strong> Developers must adhere strictly to span creation and lifecycle rules.</li>
+<li><strong>Log Volume and Storage:</strong> Potential for large log volumes, especially with DEBUG or TRACE enabled.</li>
+<li><strong>Operational Overhead:</strong> Requires monitoring of log volumes and retention policies to manage costs.</li>
+</ul>
+<hr />
+<h2 id="-alternatives-considered-and-dismissed"><a class="header" href="#-alternatives-considered-and-dismissed">✅ Alternatives Considered and Dismissed</a></h2>
+<ul>
+<li><strong>Unstructured Logging:</strong> Lack of parseability and reduced debugging capability.</li>
+<li><strong>Using <code>log</code> crate:</strong> Lacks structured tracing capabilities and span support of <code>tracing</code>.</li>
+<li><strong>Third-party proprietary logging tools:</strong> Reduced control and higher cost; less customization potential.</li>
+</ul>
+<hr />
+<h2 id="-implementation-recommendations"><a class="header" href="#-implementation-recommendations">📌 Implementation Recommendations:</a></h2>
+<ul>
+<li>Create a dedicated <strong>Logging Style Guide</strong> document specifying <code>tracing</code> usage patterns.</li>
+<li>Use automated linting to enforce span hierarchy and log level conventions during CI/CD pipelines.</li>
+<li>Periodically review log metrics (volume, retention, levels) to manage operational overhead.</li>
+</ul>
+<hr />
+<h2 id="-industry-leading-capabilities"><a class="header" href="#-industry-leading-capabilities">🚀 Industry-Leading Capabilities</a></h2>
+<p>This structured logging and tracing strategy significantly enhances Tiffany's ability to manage operational complexity, rapidly diagnose issues, and maintain transparency, positioning it as a leader in observability and autonomous agentic infrastructure management.</p>
+<hr />
+<h2 id="-next-steps"><a class="header" href="#-next-steps">📊 Next Steps:</a></h2>
+<p>Upon confirmation, this ADR is ready for acceptance and immediate detailed implementation.</p>
+<p>✅ <strong>Ready for final review and acceptance.</strong></p>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
@@ -203,6 +2142,7 @@
         <script src="book.js"></script>
 
         <!-- Custom JS scripts -->
+        <script src="theme/mermaid.js"></script>
 
         <script>
         window.addEventListener('load', function() {

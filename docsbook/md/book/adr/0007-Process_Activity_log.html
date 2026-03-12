@@ -1,0 +1,373 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>ADR-0007: Process Activity Log - Mayfly System Design</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../theme/custom.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Mayfly System Design</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="adr-0007-process-activity-log-pal-and-real-time-status-stream"><a class="header" href="#adr-0007-process-activity-log-pal-and-real-time-status-stream">ADR-0007: Process Activity Log (PAL) and Real-Time Status Stream</a></h1>
+<h2 id="status"><a class="header" href="#status">Status</a></h2>
+<p>Accepted</p>
+<h2 id="context"><a class="header" href="#context">Context</a></h2>
+<p>While the Write-Ahead Log (WAL) guarantees task durability and auditability in Tiffany, it is not suited for <strong>real-time observability</strong>. Users and dashboards need visibility into what the system is currently doing — not just what it has already persisted.</p>
+<p>To address this, we introduce the <strong>Process Activity Log (PAL)</strong>, a real-time, ephemeral streaming mechanism for broadcasting the active state of each agent task as it progresses through its coroutine lifecycle.</p>
+<p>The PAL augments the WAL by offering live introspection into step-level execution, LLM calls, tool activity, patching, and user confirmation — enabling powerful local CLI feedback, remote dashboards, and multi-user observability.</p>
+<p>PALs are not commonly implemented in most systems. However, in the context of an agentic runtime with coroutine yield points, explicit steps, and Git-integrated patching, <strong>the value of live process state becomes critically important</strong> for:</p>
+<ul>
+<li>Progress visibility during long-running operations</li>
+<li>Safe human-in-the-loop oversight</li>
+<li>Remote system administration and dashboarding</li>
+<li>Collaborative multi-user environments</li>
+</ul>
+<hr />
+<h2 id="decision"><a class="header" href="#decision">Decision</a></h2>
+<p>Tiffany will maintain a separate PAL channel per running task, broadcasting structured <code>ActivityEvent</code> objects to all connected consumers (CLI, dashboards, logs).</p>
+<h3 id="pal-characteristics"><a class="header" href="#pal-characteristics">PAL Characteristics</a></h3>
+<ul>
+<li>Non-durable, ephemeral (not fsynced or written to disk)</li>
+<li>Optimized for streaming, not audit</li>
+<li>Broadcast to:
+<ul>
+<li>Local CLI (via Unix domain socket)</li>
+<li>Remote UI (via WebSocket/gRPC stream)</li>
+<li>Logging adapter (optional)</li>
+<li>Pub/Sub (e.g., Redis Streams, NATS, Fluvio, etc.)</li>
+</ul>
+</li>
+</ul>
+<h3 id="event-schema"><a class="header" href="#event-schema">Event Schema</a></h3>
+<pre><code class="language-json">{
+  "ts": "2025-06-27T16:12:00Z",
+  "task_id": "uuid",
+  "stage": "ExecutingTool",
+  "message": "Running shell: cargo test"
+}
+</code></pre>
+<h3 id="pal-event-types"><a class="header" href="#pal-event-types">PAL Event Types</a></h3>
+<ul>
+<li><code>ReceivedInstruction</code></li>
+<li><code>WaitingForLLM</code></li>
+<li><code>ToolExecutionStart</code></li>
+<li><code>ToolExecutionComplete</code></li>
+<li><code>PreviewingPatch</code></li>
+<li><code>AwaitingUserApproval</code></li>
+<li><code>CommittingPatch</code></li>
+<li><code>Idle</code></li>
+<li><code>Completed</code></li>
+</ul>
+<h3 id="pal-channel-infrastructure"><a class="header" href="#pal-channel-infrastructure">PAL Channel Infrastructure</a></h3>
+<ul>
+<li>Each Tiffany runtime instance will maintain an async broadcast stream (<code>tokio::broadcast</code>) for each task</li>
+<li>The CLI and UI connect as <strong>subscribers</strong>, filtered by task ID</li>
+<li>Internal PAL server optionally bridges these into REST, WebSocket, or external pub/sub systems</li>
+</ul>
+<hr />
+<h2 id="sequence-diagram-pal-streaming-in-action"><a class="header" href="#sequence-diagram-pal-streaming-in-action">Sequence Diagram: PAL Streaming in Action</a></h2>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant User
+    participant CLI
+    participant UI
+    participant Agent
+    participant PAL
+    participant WAL
+    participant PubSub
+
+    User-&gt;&gt;CLI: tinkerbell submit "Add validation to model.rs"
+    CLI-&gt;&gt;Agent: Submit instruction
+    Agent-&gt;&gt;WAL: Log InstructionStart
+    Agent-&gt;&gt;PAL: Emit ReceivedInstruction
+    PAL--&gt;&gt;CLI: Stream activity
+    PAL--&gt;&gt;UI: WebSocket push
+    PAL--&gt;&gt;PubSub: Fan-out event (optional)
+
+    Agent-&gt;&gt;PAL: Emit WaitingForLLM
+    Agent-&gt;&gt;LLM: Generate plan
+    LLM--&gt;&gt;Agent: Return plan
+    Agent-&gt;&gt;PAL: Emit ToolExecutionStart ("Running shell tool")
+    Agent-&gt;&gt;Tool: Execute shell script
+    Tool--&gt;&gt;Agent: Result
+    Agent-&gt;&gt;PAL: Emit ToolExecutionComplete
+    Agent-&gt;&gt;Canvas: Apply patch
+    Agent-&gt;&gt;PAL: Emit PreviewingPatch
+    Agent-&gt;&gt;User: Confirm patch
+    User--&gt;&gt;Agent: Approve
+    Agent-&gt;&gt;PAL: Emit CommittingPatch
+    Agent-&gt;&gt;Git: Commit
+    Agent-&gt;&gt;PAL: Emit Completed
+    Agent-&gt;&gt;WAL: Log TaskComplete
+</code></pre>
+<hr />
+<h2 id="rationale"><a class="header" href="#rationale">Rationale</a></h2>
+<h3 id="-real-time-feedback-for-humans"><a class="header" href="#-real-time-feedback-for-humans">✅ Real-Time Feedback for Humans</a></h3>
+<p>Unlike WALs — which are audit-focused and write-after-the-fact — the PAL is designed to <strong>describe what the agent is doing right now</strong>.</p>
+<p>This enables:</p>
+<ul>
+<li><strong>CLI progress bars, spinners, and log overlays</strong></li>
+<li><strong>Remote dashboards that track multiple agents in real time</strong></li>
+<li><strong>Streaming logs with contextual status annotations</strong></li>
+<li><strong>System admins to monitor all active workloads in the FAR runtime</strong></li>
+</ul>
+<h3 id="-pubsub-observability"><a class="header" href="#-pubsub-observability">📟 Pub/Sub Observability</a></h3>
+<p>PAL emits can be optionally bridged to:</p>
+<ul>
+<li>Redis Streams</li>
+<li>NATS subjects</li>
+<li>Kafka partitions</li>
+</ul>
+<p>This enables:</p>
+<ul>
+<li>Multiple UIs to subscribe to live activity</li>
+<li>Alerting and event-driven monitoring pipelines</li>
+<li>Prometheus exporters to map PAL events to gauge metrics</li>
+</ul>
+<h3 id="-complements-wal-without-overlapping-it"><a class="header" href="#-complements-wal-without-overlapping-it">🧩 Complements WAL without Overlapping It</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Feature</th><th>WAL (Write-Ahead Log)</th><th>PAL (Process Activity Log)</th></tr></thead><tbody>
+<tr><td>Format</td><td>Append-only, structured JSON</td><td>Broadcast JSON, ephemeral</td></tr>
+<tr><td>Scope</td><td>Durable system of record</td><td>Live visibility per active task</td></tr>
+<tr><td>Persistence</td><td>Filesystem</td><td>Memory / socket / stream</td></tr>
+<tr><td>Usage</td><td>Replay, recovery, audit</td><td>CLI/UI visibility, status updates</td></tr>
+<tr><td>Timing</td><td>After the fact</td><td>Concurrent with step execution</td></tr>
+</tbody></table>
+</div>
+<hr />
+<h2 id="consequences"><a class="header" href="#consequences">Consequences</a></h2>
+<ul>
+<li>Introduces a lightweight PAL layer into each <code>AgentTask</code></li>
+<li>Developers must emit PAL signals at major yield boundaries</li>
+<li>CLI and UI must support PAL subscription and display logic</li>
+<li>Integration tests will include PAL mock subscribers for validation</li>
+<li>PAL memory usage must be bounded (e.g. backpressure if no consumer)</li>
+</ul>
+<hr />
+<h2 id="alternatives-considered"><a class="header" href="#alternatives-considered">Alternatives Considered</a></h2>
+<ul>
+<li><strong>Extending WAL with ephemeral events</strong> – Pollutes durability layer; delays update timing</li>
+<li><strong>Relying on console logs</strong> – Not structured, not streamable, not indexable by UI</li>
+<li><strong>Polling task status</strong> – Inefficient and fails in multi-user concurrent settings</li>
+</ul>
+<hr />
+<h2 id="related-documents"><a class="header" href="#related-documents">Related Documents</a></h2>
+<ul>
+<li><a href="adr_0006_wal_schema_replay.html">ADR-0006: WAL Schema and Replay Policy</a></li>
+<li><a href="adr_0004_agent_loop_react.html">ADR-0004: Agent Loop and ReAct Design</a></li>
+<li><a href="../whitepapers/Tiffany%20System%20Architecture%20and%20Design%20Overview.html">Tiffany System Architecture</a></li>
+</ul>
+<hr />
+<h2 id="adopted"><a class="header" href="#adopted">Adopted</a></h2>
+<p>This ADR is accepted as of June 2025. All running agent tasks will emit real-time PAL events through an ephemeral pub-sub system to enable responsive CLI feedback, multi-user UI dashboards, and remote introspection.</p>
+<p>Maintainers: <code>@casibbald</code>, <code>@microscaler-team</code></p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../adr/0006-WAL_Schema_and_Replay_Policy.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../adr/0019-Logging_Strategy_and_Span_Hierarchy.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../adr/0006-WAL_Schema_and_Replay_Policy.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../adr/0019-Logging_Strategy_and_Span_Hierarchy.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../theme/mermaid.js"></script>
+
+
+    </div>
+    </body>
+</html>
