@@ -74,6 +74,9 @@ pub struct Scheduler {
     dependencies: HashMap<TaskId, HashSet<TaskId>>, // tasks this task depends on
     dependents: HashMap<TaskId, HashSet<TaskId>>,   // tasks that depend on this task
     unresolved_deps: HashMap<TaskId, usize>,        // unresolved dependency count
+
+    /// Buffered syscalls from tasks that sent while we had another task popped; process in pop order.
+    pending_syscalls: HashMap<TaskId, SystemCall>,
 }
 
 impl Scheduler {
@@ -110,6 +113,7 @@ impl Scheduler {
             dependencies: HashMap::new(),
             dependents: HashMap::new(),
             unresolved_deps: HashMap::new(),
+            pending_syscalls: HashMap::new(),
         }
     }
 
@@ -385,7 +389,10 @@ impl Scheduler {
             }
 
             while let Ok((call_tid, syscall)) = self.syscall_rx.try_recv() {
-                self.handle_syscall(call_tid, syscall, &mut done_order);
+                if self.tasks.contains_key(&call_tid) {
+                    self.pending_syscalls.insert(call_tid, syscall);
+                    self.push_ready(call_tid);
+                }
                 did_work = true;
             }
 
@@ -421,6 +428,7 @@ impl Scheduler {
                         && self.finalization_queue.is_empty()
                         && self.ready.is_empty()
                         && self.syscall_rx.is_empty()
+                        && self.pending_syscalls.is_empty()
                     {
                         idle_ticks += 1;
                         if idle_ticks >= MAX_IDLE_TICKS {
@@ -435,6 +443,7 @@ impl Scheduler {
             };
 
             if !self.tasks.contains_key(&tid) {
+                self.pending_syscalls.remove(&tid);
                 continue;
             }
 
@@ -460,18 +469,32 @@ impl Scheduler {
 
             let _task = self.tasks.get_mut(&tid).expect("task not found");
 
-            match self.syscall_rx.recv_timeout(Duration::from_millis(5)) {
-                Ok((call_tid, syscall)) => {
-                    if call_tid != tid && self.tasks.contains_key(&tid) {
-                        self.push_ready(tid);
+            // Prefer pending syscall for this task (from an earlier recv that was for another task).
+            let (call_tid, syscall) = if let Some(pending) = self.pending_syscalls.remove(&tid) {
+                (tid, pending)
+            } else {
+                match self.syscall_rx.recv_timeout(Duration::from_millis(5)) {
+                    Ok((call_tid, syscall)) => {
+                        if call_tid != tid {
+                            if self.tasks.contains_key(&tid) {
+                                self.push_ready(tid);
+                            }
+                            if self.tasks.contains_key(&call_tid) {
+                                self.pending_syscalls.insert(call_tid, syscall);
+                                self.push_ready(call_tid);
+                            }
+                            continue;
+                        }
+                        (call_tid, syscall)
                     }
-                    self.handle_syscall(call_tid, syscall, &mut done_order);
+                    Err(RecvTimeoutError::Timeout) => {
+                        tracing::warn!("scheduler idle timeout");
+                        continue;
+                    }
+                    Err(RecvTimeoutError::Disconnected) => continue,
                 }
-                Err(RecvTimeoutError::Timeout) => {
-                    tracing::warn!("scheduler idle timeout");
-                }
-                Err(RecvTimeoutError::Disconnected) => {}
-            }
+            };
+            self.handle_syscall(call_tid, syscall, &mut done_order);
             // Finalize any tasks in the finalization queue
             while let Some(tid) = self.finalization_queue.pop() {
                 if let Some(task) = self.tasks.get(&tid) {
@@ -589,7 +612,10 @@ impl Scheduler {
             }
 
             while let Ok((call_tid, syscall)) = self.syscall_rx.try_recv() {
-                self.handle_syscall(call_tid, syscall, &mut done_order);
+                if self.tasks.contains_key(&call_tid) {
+                    self.pending_syscalls.insert(call_tid, syscall);
+                    self.push_ready(call_tid);
+                }
             }
 
             let tid = match self.ready.pop() {
@@ -598,6 +624,7 @@ impl Scheduler {
             };
 
             if !self.tasks.contains_key(&tid) {
+                self.pending_syscalls.remove(&tid);
                 continue;
             }
 
@@ -623,19 +650,31 @@ impl Scheduler {
 
             let _task = self.tasks.get_mut(&tid).expect("task not found");
 
-            match self.syscall_rx.recv_timeout(Duration::from_secs(5)) {
-                Ok((call_tid, syscall)) => {
-                    if call_tid != tid && self.tasks.contains_key(&tid) {
-                        self.push_ready(tid);
+            let (call_tid, syscall) = if let Some(pending) = self.pending_syscalls.remove(&tid) {
+                (tid, pending)
+            } else {
+                match self.syscall_rx.recv_timeout(Duration::from_secs(5)) {
+                    Ok((call_tid, syscall)) => {
+                        if call_tid != tid {
+                            if self.tasks.contains_key(&tid) {
+                                self.push_ready(tid);
+                            }
+                            if self.tasks.contains_key(&call_tid) {
+                                self.pending_syscalls.insert(call_tid, syscall);
+                                self.push_ready(call_tid);
+                            }
+                            continue;
+                        }
+                        (call_tid, syscall)
                     }
-                    self.handle_syscall(call_tid, syscall, &mut done_order);
+                    Err(RecvTimeoutError::Timeout) => {
+                        tracing::warn!("scheduler idle timeout");
+                        break;
+                    }
+                    Err(RecvTimeoutError::Disconnected) => break,
                 }
-                Err(RecvTimeoutError::Timeout) => {
-                    tracing::warn!("scheduler idle timeout");
-                    break;
-                }
-                Err(RecvTimeoutError::Disconnected) => break,
-            }
+            };
+            self.handle_syscall(call_tid, syscall, &mut done_order);
         }
         // Finalize any tasks in the finalization queue
         while let Some(tid) = self.finalization_queue.pop() {

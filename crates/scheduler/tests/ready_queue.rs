@@ -1,8 +1,6 @@
 use scheduler::ready_queue::{ReadyEntry, ReadyQueue};
-use serial_test::file_serial;
 
 #[test]
-#[file_serial]
 fn test_ready_queue_fifo() {
     let mut q = ReadyQueue::new();
     q.push(ReadyEntry {
@@ -22,7 +20,6 @@ fn test_ready_queue_fifo() {
 }
 
 #[test]
-#[file_serial]
 fn test_ready_queue_no_duplicates() {
     let mut q = ReadyQueue::new();
     q.push(ReadyEntry {

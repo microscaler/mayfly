@@ -1,5 +1,3 @@
-#![feature(coroutines)]
-
 mod clock;
 pub mod io;
 mod pal;
