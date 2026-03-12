@@ -1,8 +1,7 @@
-# Build docbook and deploy to GitHub Pages at mayfly.microscaler.io
+# mayfly.microscaler.io = docbook (mdbook) only.
+# API (cargo doc) is uploaded as artifact 'mayfly-api-docs' for deployment to crates.dio / crates.microscaler.io.
 #
-# Repo setup: Settings > Pages > Source: GitHub Actions.
-# Custom domain: Settings > Pages > Custom domain: mayfly.microscaler.io
-# DNS: Add CNAME record for mayfly.microscaler.io → <owner>.github.io (or use A records per GitHub docs).
+# Repo: Settings > Pages > Source: GitHub Actions; Custom domain: mayfly.microscaler.io
 #
 name: Build and Deploy Docs
 
@@ -51,13 +50,24 @@ jobs:
       - name: Build docbook
         run: cargo run -p docsbookgen
 
-      - name: Add CNAME for mayfly.microscaler.io
-        run: echo "mayfly.microscaler.io" > docsbook/CNAME
+      # mayfly.microscaler.io = docbook only (no index linking to API)
+      - name: Prepare docbook-only deploy (mayfly.microscaler.io)
+        run: |
+          mkdir -p deploy
+          cp -r docsbook/md/book/. deploy/
+          echo "mayfly.microscaler.io" > deploy/CNAME
 
-      - name: Upload pages artifact
+      - name: Upload pages artifact (docbook only)
         uses: actions/upload-pages-artifact@v4
         with:
-          path: docsbook/
+          path: deploy/
+
+      # API (cargo doc) artifact for deployment to crates.microscaler.io or crates.dio
+      - name: Upload API docs artifact (for crates.dio / crates.microscaler.io)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mayfly-api-docs
+          path: docsbook/api/
 
   deploy:
     environment:
